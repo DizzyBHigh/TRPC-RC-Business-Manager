@@ -1,0 +1,1779 @@
+:root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --text: #c9d1d9;
+    --accent: #58a6ff;
+    --green: #238636;
+    --red: #da3633;
+    --border: #30363d;
+    --hover: #1f6feb;
+    --pill-bg: #30363d;
+    --pill-text: #ee940e;
+    --orange: #d4850e;
+    --yellow: #f0ec0f;
+    --info: #0e95d4;
+}
+
+body.light {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --text: #24292f;
+    --accent: #0969da;
+    --green: #1a7f37;
+    --red: #cf222e;
+    --border: #d0d7de;
+    --hover: #1f6feb;
+    --pill-bg: #e6e6e6;
+    --pill-text: #2f2b24;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.4;
+    transition: all 0.3s;
+}
+
+h1,
+h2,
+h3 {
+    color: var(--accent);
+    text-align: center;
+    margin: 16px 0 8px;
+}
+
+.subtitle {
+    color: #8b949e;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.tabs {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 8px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.tab {
+    padding: 8px 16px;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.tab.active {
+    background: var(--accent);
+    color: white;
+}
+
+.tab-content {
+    display: none;
+    padding: 16px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.controls {
+    background: var(--card);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.searchable-select {
+    position: relative;
+    display: inline-block;
+    width: 380px;
+}
+
+.searchable-select input {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 15px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    box-sizing: border-box;
+}
+
+.searchable-select .options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.category {
+    background: var(--accent);
+    color: white;
+    padding: 6px 12px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.category-item {
+    padding: 8px 14px;
+    cursor: pointer;
+}
+
+.category-item:hover {
+    background: var(--hover);
+    color: white;
+}
+
+input[type=number],
+input[type=text],
+select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+}
+
+button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+button.primary {
+    background: var(--accent);
+    color: white;
+}
+
+button.danger {
+    background: var(--red);
+    color: white;
+}
+
+button.warning {
+    background: var(--yellow);
+    color: white;
+}
+
+button.success {
+    background: var(--green);
+    color: white;
+}
+
+button.info {
+    background: var(--yellow);
+    color: rgb(12, 12, 12);
+}
+
+button.small {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+button.save-all {
+    background: #9c27b0;
+    color: white;
+    padding: 14px 40px;
+    font-size: 16px;
+    border-radius: 50px;
+    margin: 20px auto;
+    display: block;
+}
+
+.item-row {
+    background: var(--card);
+    padding: 12px;
+    border-radius: 6px;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    border: 1px solid var(--border);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+}
+
+th,
+td {
+    padding: 8px;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+th {
+    background: var(--accent);
+    color: white;
+}
+
+.price-input {
+    width: 90px;
+    text-align: right;
+    font-size: 13px;
+}
+
+.profit-positive {
+    color: #7ee787;
+    font-weight: bold;
+}
+
+.profit-negative {
+    color: #ff6b6b;
+    font-weight: bold;
+}
+
+.tree {
+    margin-left: 20px;
+    border-left: 2px dotted var(--border);
+    padding-left: 16px;
+}
+
+.tree-item {
+    margin: 6px 0;
+}
+
+.final-total {
+    font-weight: bold;
+    background: var(--green);
+    color: white;
+}
+
+.toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    justify-content: center;
+}
+
+.ingredient-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 6px 0;
+    flex-wrap: wrap;
+}
+
+.ingredient-row .searchable-select {
+    width: 220px;
+}
+
+.print-btn {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    padding: 10px 20px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50px;
+    z-index: 100;
+}
+
+.dark-toggle {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    padding: 10px 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    cursor: pointer;
+    z-index: 100;
+    font-weight: bold;
+}
+
+.category-header {
+    background: var(--accent);
+    color: white;
+    padding: 12px;
+    font-weight: bold;
+    font-size: 16px;
+    margin: 24px 0 8px 0;
+    border-radius: 6px;
+}
+
+.category-block {
+    margin-bottom: 20px;
+}
+
+.sync-box {
+    background: var(--card);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin: 16px 0;
+}
+
+.sync-checkboxes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 12px 0;
+}
+
+.sync-checkboxes label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.category-pill {
+    background: var(--pill-bg);
+    color: var(--pill-text);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px;
+}
+
+.invoice-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.invoice-table {
+    width: 100%;
+    margin: 20px 0;
+    font-size: 15px;
+}
+
+.invoice-table th {
+    background: var(--accent);
+    color: white;
+}
+
+.invoice-table td,
+.invoice-table th {
+    padding: 12px;
+    text-align: left;
+}
+
+.invoice-total {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 20px;
+    text-align: right;
+}
+
+.profit-toggle {
+    margin: 20px auto;
+    display: block;
+    padding: 12px 24px;
+    font-size: 16px;
+}
+
+/* SEARCHABLE DROPDOWN MENU STYLES */
+.searchable-select {
+    position: relative;
+    display: inline-block;
+}
+
+.searchable-select input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+}
+
+.searchable-select .options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-top: 6px;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: none;
+}
+
+.category {
+    padding: 10px 16px;
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.category-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border);
+}
+
+.category-item:hover {
+    background: var(--accent-transparent, rgba(59, 130, 246, 0.15));
+    color: var(--accent);
+}
+
+.category-item:last-child {
+    border-bottom: none;
+}
+
+#sectionHeader {
+    background: #111;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 2px solid #333;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-wrap: wrap;
+    /* Allows wrapping on very small screens */
+    justify-content: flex-start;
+}
+
+.section-selector {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-btn {
+    background: #222;
+    color: white;
+    border: 1px solid #444;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dropdown-btn:hover {
+    background: #333;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 8px;
+    min-width: 160px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #333;
+}
+
+.dropdown-item:hover {
+    background: #00d4ff;
+    color: black;
+}
+
+.dropdown-item:last-child {
+    border-bottom: none;
+}
+
+/* Make sure the horizontal tabs take available space but don't push everything */
+.horizontal-tabs {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    /* Takes all available space in the middle */
+    min-width: 0;
+    /* Critical: allows flex shrinking */
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.horizontal-tab {
+    padding: 10px 18px;
+    background: #222;
+    color: #aaa;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.horizontal-tab.active {
+    background: var(--accent, #00d4ff);
+    color: black;
+    font-weight: bold;
+}
+
+.horizontal-tab:hover:not(.active) {
+    background: #333;
+    color: white;
+}
+
+/* Online panel stays glued to the right */
+#onlineUsersPanel {
+    margin-left: auto;
+    /* Pushes it to the far right */
+    padding-left: 20px;
+    /* Optional visual separation */
+}
+
+/* Optional: Make user avatars/dots look nice */
+.online-user-dot {
+    width: 10px;
+    height: 10px;
+    background: #0f0;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #0f0;
+    animation: pulse 2s infinite;
+}
+
+#onlineList {
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    max-width: none !important;
+    /* or a large value */
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 0.7;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* On small screens, move online panel below tabs */
+@media (max-width: 900px) {
+    #sectionHeader {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .horizontal-tabs {
+        order: 2;
+        justify-content: center;
+        margin: 8px 0;
+    }
+
+    #onlineUsersPanel {
+        margin-left: 0;
+        padding-left: 0;
+        order: 1;
+        justify-content: center;
+    }
+}
+
+.min-stock-input {
+    border: 2px solid #444;
+    transition: border 0.2s;
+    width: 50%;
+
+}
+
+.min-stock-input:focus {
+    border-color: var(--accent) !important;
+    outline: none;
+}
+
+.shop-stock-input {
+    border: 2px solid #444;
+    transition: border 0.2s;
+    width: 50%;
+}
+
+.shop-stock-input:focus {
+    border-color: var(--accent) !important;
+    outline: none;
+}
+
+.warehouse-stock-input {
+    border: 2px solid #444;
+    transition: border 0.2s;
+    width: 50%;
+}
+
+.warehouse-stock-input:focus {
+    border-color: var(--accent) !important;
+    outline: none;
+}
+
+/* GREEN FLASH — 100% WORKING */
+.inventory-green-flash {
+    background-color: #00ff00 !important;
+    transition: background-color 0.4s ease !important;
+    animation: flashGreen 0.4s ease-out !important;
+}
+
+@keyframes flashGreen {
+    0% {
+        background-color: #00ff00 !important;
+    }
+
+    100% {
+        background-color: transparent !important;
+    }
+}
+
+.auto-save-input {
+    width: 80px;
+    padding: 6px 8px;
+    border: 2px solid #444;
+    border-radius: 6px;
+    background: #111;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.auto-save-input:focus {
+    border-color: var(--accent) !important;
+    background: #222;
+    outline: none;
+    box-shadow: 0 0 8px rgba(0, 200, 255, 0.3);
+}
+
+.tab-content.active {
+    display: block !important;
+}
+
+/* Tight, clean price inputs — no more fat columns */
+#priceListContainer .price-input {
+    width: 58px !important;
+    /* perfect sweet spot */
+    padding: 4px 6px !important;
+    text-align: center;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+/* Optional: force columns to shrink to content */
+#priceListContainer th:nth-child(4),
+/* Bulk Price */
+#priceListContainer th:nth-child(7),
+/* Shop Price */
+#priceListContainer td:nth-child(4),
+#priceListContainer td:nth-child(7) {
+    width: 1% !important;
+    /* forces column to shrink to input size */
+    white-space: nowrap;
+}
+
+.price-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 15px;
+}
+
+.price-table th {
+    background: #111;
+    padding: 10px 8px;
+    text-align: center;
+    font-weight: bold;
+    border-bottom: 2px solid #333;
+}
+
+.price-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #222;
+    text-align: center;
+}
+
+.price-group.bulk {
+    background: rgba(100, 200, 255, 0.15);
+}
+
+.price-group.shop {
+    background: rgba(100, 255, 150, 0.15);
+}
+
+.price-input {
+    width: 90px;
+    text-align: center;
+    background: #000;
+    border: 1px solid #444;
+    color: white;
+    padding: 6px;
+    border-radius: 4px;
+}
+
+/* Section Description — Persistent + Hover Tooltip */
+#sectionDescription {
+    padding: 12px 20px;
+    background: rgba(0, 180, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 180, 255, 0.2);
+    color: #aaf;
+    font-size: 14px;
+    font-style: italic;
+    transition: all 0.3s ease;
+    min-height: 20px;
+}
+
+.dropdown-item {
+    position: relative;
+    padding: 10px 16px;
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background: rgba(0, 200, 255, 0.15);
+}
+
+/* Tooltip on hover */
+.dropdown-item::after {
+    content: attr(data-desc);
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #000e;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+    margin-left: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.dropdown-item:hover::after {
+    opacity: 1;
+}
+
+/* Tab description — appears on hover + persistent */
+#tabDescription {
+    padding: 10px 20px;
+    background: rgba(0, 255, 180, 0.06);
+    border-bottom: 1px solid rgba(0, 255, 180, 0.15);
+    color: #8fffe0;
+    font-size: 13.5px;
+    font-style: normal;
+    min-height: 18px;
+    transition: all 0.3s ease;
+}
+
+/* Hover tooltip for horizontal tabs */
+.horizontal-tab {
+    position: relative;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.horizontal-tab:hover {
+    background: rgba(0, 200, 255, 0.15);
+}
+
+.horizontal-tab::after {
+    content: attr(data-desc);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #001122;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    z-index: 1000;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+    margin-bottom: 8px;
+}
+
+.horizontal-tab:hover::after {
+    opacity: 1;
+}
+
+#sectionDescription,
+#tabDescription {
+    overflow: hidden;
+    transition: all 0.4s ease;
+    max-height: 100px;
+}
+
+#helpToggleBtn:hover {
+    background: rgba(0, 204, 255, 0.3) !important;
+    transform: scale(1.1);
+}
+
+.menu-desc {
+    padding: 12px 20px;
+    background: rgba(0, 180, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 180, 255, 0.15);
+    color: #aaf;
+    font-size: 14px;
+    overflow: hidden;
+    transition: all 0.4s ease;
+    max-height: 100px;
+    opacity: 1;
+}
+
+/* .menu-desc.hidden {
+    max-height: 0;
+    padding: 0 20px;
+    border-bottom: 0;
+    opacity: 0;
+    margin: 0;
+} */
+
+#helpToggleBtn:hover {
+    background: rgba(0, 204, 255, 0.2) !important;
+    transform: scale(1.08);
+    box-shadow: 0 0 20px rgba(0, 204, 255, 0.8) !important;
+}
+
+#helpToggleBtn.off {
+    background: #111 !important;
+    border-color: #444;
+    color: #666;
+    box-shadow: none !important;
+}
+
+.menu-desc {
+    padding: 16px 24px;
+    background: rgba(0, 180, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 180, 255, 0.18);
+    color: #bbf;
+    font-size: 14.5px;
+    line-height: 1.6;
+    transition: all 0.4s ease;
+    opacity: 1;
+
+    /* THESE ARE THE KEY LINES — REMOVE ANY MAX-HEIGHT! */
+    min-height: 0;
+    max-height: none !important;
+    /* Remove any height cap */
+    overflow: visible !important;
+    /* Let it grow freely */
+}
+
+.menu-desc.hidden {
+    display: none !important;
+}
+
+/* Beautiful formatting for your rich text */
+.menu-desc strong {
+    color: #0ff;
+    font-weight: 600;
+}
+
+.menu-desc br {
+    display: block;
+    margin: 6px 0;
+    content: "";
+}
+
+#tabDescription.menu-desc {
+    padding: 16px 24px;
+    background: rgba(0, 180, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 180, 255, 0.18);
+    color: #bbf;
+    font-size: 14.5px;
+    line-height: 1.7;
+    transition: opacity 0.4s ease;
+}
+
+#tabDescription.menu-desc strong {
+    color: #0ff;
+}
+
+#tabDescription.menu-desc em {
+    color: #8cf;
+    font-style: italic;
+}
+
+
+
+#newIngredients,
+#editIngredients {
+    position: relative;
+    /* Creates stacking context */
+    overflow: visible !important;
+    /* This is the key line */
+    z-index: 1;
+}
+
+/* Make sure the dropdown floats above everything */
+.searchable-select {
+    position: relative;
+    z-index: 99999;
+}
+
+/* Passphrase Management Input Focus Effects */
+#newPassphraseInput:focus,
+#confirmPassphraseInput:focus,
+#businessPassphraseInput:focus {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1) !important;
+    background: #2a0a0a !important;
+}
+
+/* Button Hover Effects */
+#changePassphraseBtn:hover {
+    background: linear-gradient(135deg, #cc0000, #ff6b6b) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4) !important;
+}
+
+#disablePassphraseBtn:hover {
+    background: linear-gradient(135deg, #c82333, #dc3545) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4) !important;
+}
+
+/* Input Error States */
+input:invalid {
+    border-color: #dc3545 !important;
+    background: #2a0a0a !important;
+}
+
+/* Responsive Grid */
+@media (max-width: 768px) {
+    #passphraseManagement>div {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Loading Button States */
+button.loading {
+    opacity: 0.8 !important;
+    cursor: wait !important;
+}
+
+.logoutBtn {
+    z-index: 1000;
+    background: #0e95d4;
+    color: white;
+    border: none;
+    padding: 2px 5px 3px 5px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* Success Message Styling */
+.success-notification {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    background: linear-gradient(135deg, var(--green), #20c997) !important;
+    color: white !important;
+    padding: 15px 20px !important;
+    border-radius: 10px !important;
+    z-index: 10001 !important;
+    box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3) !important;
+    font-weight: 500 !important;
+    max-width: 350px !important;
+    font-size: 14px !important;
+}
+
+/* Warning Message Styling */
+.warning-notification {
+    position: fixed !important;
+    top: 20px !important;
+    left: 20px !important;
+    right: 20px !important;
+    background: linear-gradient(135deg, #ffc107, #fd7e14) !important;
+    color: #000 !important;
+    padding: 15px 20px !important;
+    border-radius: 10px !important;
+    z-index: 10001 !important;
+    box-shadow: 0 4px 20px rgba(255, 193, 7, 0.3) !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    max-width: 500px !important;
+    margin: 0 auto !important;
+}
+
+
+/* =============================================
+PERMISSIONS EDITOR & ROLES MANAGER STYLES
+============================================= */
+
+/* Permissions Editor Container */
+.permissions-editor-container {
+    margin-top: 30px !important;
+    padding: 20px !important;
+    background: #111 !important;
+    border-radius: 12px !important;
+}
+
+/* Permissions Editor Title */
+.permissions-editor-title {
+    margin: 0 0 15px 0 !important;
+    color: #0ff !important;
+}
+
+/* Role Permission Cards */
+.role-permission-card {
+    background: #222 !important;
+    padding: 18px !important;
+    border-radius: 12px !important;
+}
+
+/* Role Permission Headers */
+.role-permission-header {
+    margin: 0 0 15px 0 !important;
+    color: #ff0 !important;
+    font-size: 18px !important;
+}
+
+/* Permission Checkbox Grid */
+.permission-checkbox-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+}
+
+/* Permission Checkbox Labels */
+.permission-checkbox-label {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+}
+
+/* Permission Checkbox Inputs */
+.permission-checkbox-input {
+    width: 16px !important;
+    height: 16px !important;
+    cursor: pointer !important;
+}
+
+/* Permission Checkbox Text */
+.permission-checkbox-text {
+    color: #ccc !important;
+}
+
+/* Roles Manager Employee Cards */
+.roles-employee-card {
+    padding: 15px !important;
+    background: #222 !important;
+    margin: 10px 0 !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+}
+
+/* Employee Name */
+.employee-name {
+    font-size: 18px !important;
+    font-weight: bold !important;
+}
+
+/* Role Badge Container */
+.role-badge-container {
+    display: flex !important;
+    gap: 10px !important;
+    align-items: center !important;
+}
+
+/* Role Badges */
+.role-badge {
+    padding: 8px 16px !important;
+    color: black !important;
+    border-radius: 8px !important;
+    font-weight: bold !important;
+}
+
+.role-badge.manager {
+    background: #0ff !important;
+}
+
+.role-badge.assistant {
+    background: #0f8 !important;
+}
+
+.role-badge.worker {
+    background: #ff0 !important;
+}
+
+.role-badge.viewer {
+    background: #f66 !important;
+}
+
+/* Fire Button */
+.fire-button {
+    background: #c00 !important;
+    padding: 8px 12px !important;
+    border: none !important;
+    border-radius: 6px !important;
+    color: white !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.fire-button:hover {
+    background: #a00 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(192, 0, 0, 0.3) !important;
+}
+
+/* Loading Text */
+.roles-loading-text {
+    color: #888 !important;
+    text-align: center !important;
+}
+
+/* No Employees Text */
+.no-employees-text {
+    color: #888 !important;
+    text-align: center !important;
+}
+
+/* Role Watermark */
+#roleWatermark {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    font-size: 100px !important;
+    color: rgba(255, 100, 100, 0.08) !important;
+    pointer-events: none !important;
+    z-index: 9999 !important;
+    font-weight: bold !important;
+    letter-spacing: 15px !important;
+}
+
+/* Permission Grid Responsive */
+@media (max-width: 768px) {
+    .permission-checkbox-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .roles-employee-card {
+        flex-direction: column !important;
+        gap: 12px !important;
+        text-align: center !important;
+    }
+
+    .role-badge-container {
+        justify-content: center !important;
+    }
+
+    #roleWatermark {
+        font-size: 60px !important;
+        letter-spacing: 8px !important;
+    }
+}
+
+/* Focus States for Accessibility */
+.permission-checkbox-label:focus-within,
+.fire-button:focus {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px !important;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+
+    .role-permission-card,
+    .roles-employee-card {
+        border: 2px solid #fff !important;
+    }
+
+    .fire-button {
+        border: 2px solid #fff !important;
+    }
+}
+
+/* =============================================
+PASSPHRASE MODAL — FINAL & BULLETPROOF
+============================================= */
+.passphrase-modal-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.98) !important;
+    z-index: 9999999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    backdrop-filter: blur(10px) !important;
+    animation: fadeIn 0.4s ease-out !important;
+}
+
+.passphrase-modal-content {
+    background: #1a1a2e !important;
+    padding: 50px 40px !important;
+    border-radius: 20px !important;
+    border: 3px solid #ff4444 !important;
+    max-width: 560px !important;
+    width: 90% !important;
+    text-align: center !important;
+    box-shadow: 0 0 120px rgba(255, 68, 68, 0.6) !important;
+    animation: modalPop 0.5s ease-out !important;
+}
+
+.lock-icon {
+    font-size: 70px !important;
+    margin-bottom: 20px !important;
+}
+
+.modal-title {
+    color: #ff4444 !important;
+    font-size: 28px !important;
+    margin: 0 0 16px !important;
+    text-shadow: 0 0 20px rgba(255, 68, 68, 0.6) !important;
+}
+
+.modal-subtitle {
+    color: #ccc !important;
+    margin-bottom: 32px !important;
+    line-height: 1.6 !important;
+    font-size: 17px !important;
+}
+
+.modal-hint {
+    margin-top: 24px !important;
+    color: #888 !important;
+    font-size: 14px !important;
+}
+
+/* THIS IS THE KEY FIX — MODAL INPUT IS 100% ISOLATED */
+#passphraseModal input[type="password"] {
+    display: block !important;
+    width: 100% !important;
+    padding: 20px !important;
+    font-size: 22px !important;
+    background: #0f0f23 !important;
+    color: white !important;
+    border: 2px solid #666 !important;
+    border-radius: 12px !important;
+    margin: 0 0 24px 0 !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+    font-family: inherit !important;
+    caret-color: white !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+#passphraseModal input[type="password"]:focus {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.2) !important;
+    background: #2a0a0a !important;
+}
+
+#passphraseModal button {
+    width: 100% !important;
+    padding: 20px !important;
+    font-size: 24px !important;
+    font-weight: bold !important;
+    background: linear-gradient(135deg, #585eff, #8a7aff) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+}
+
+#passphraseModal button:hover:not(:disabled) {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 10px 30px rgba(88, 94, 255, 0.5) !important;
+}
+
+#passphraseModal button:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes modalPop {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .passphrase-modal-content {
+        padding: 40px 20px !important;
+    }
+
+    .lock-icon {
+        font-size: 60px !important;
+    }
+
+    .modal-title {
+        font-size: 24px !important;
+    }
+}
+
+
+/* =============================================
+BUSINESS SETUP & PASSPHRASE MANAGEMENT (NON-MODAL)
+============================================= */
+#newPassphraseInput,
+#confirmPassphraseInput,
+#businessNameInput,
+#businessTaglineInput,
+#businessPassphraseInput {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    padding: 14px 16px !important;
+    font-size: 40px !important;
+    /* Only for real setup form */
+    border-radius: 8px !important;
+    border: 2px solid var(--border) !important;
+    background: var(--card) !important;
+    color: var(--text) !important;
+    font-family: inherit !important;
+    transition: all 0.3s ease !important;
+}
+
+#newPassphraseInput:focus,
+#confirmPassphraseInput:focus,
+#businessNameInput:focus,
+#businessTaglineInput:focus,
+#businessPassphraseInput:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1) !important;
+    background: var(--bg) !important;
+}
+
+/* Focus for old passphrase inputs (in management panel) */
+#newPassphraseInput:focus,
+#confirmPassphraseInput:focus,
+#businessPassphraseInput:focus {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1) !important;
+    background: #2a0a0a !important;
+}
+
+/* Buttons */
+#changePassphraseBtn:hover:not(:disabled),
+#submitPassphraseBtn:hover:not(:disabled),
+#saveBusinessBtn:hover,
+#configureBusinessBtn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 25px rgba(88, 166, 255, 0.4) !important;
+}
+
+#disablePassphraseBtn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #c82333, #dc3545) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4) !important;
+}
+
+button:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+}
+
+/* MODE BUTTONS — ACTIVE = BLUE, INACTIVE = WHITE */
+.mode-btn {
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    border: 2px solid rgb(255, 255, 255);
+    border-radius: 12px;
+    background: transparent;
+    color: #0af;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.mode-btn.active {
+    background: #0af;
+    color: rgb(255, 255, 255);
+    box-shadow: 0 0 20px rgba(0, 175, 255, 0.6);
+}
+
+.mode-btn:hover:not(.active) {
+    background: rgba(0, 175, 255, 0.2);
+}
+
+#savePendingOrderBtn {
+    background: rgb(0, 204, 255);
+    color: rgb(0, 0, 0);
+    padding: 16px 40px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+/* Notifications */
+.success-notification {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    background: linear-gradient(135deg, #28a745, #20c997) !important;
+    color: white !important;
+    padding: 15px 25px !important;
+    border-radius: 10px !important;
+    z-index: 10001 !important;
+    box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3) !important;
+    font-weight: 600 !important;
+    animation: slideInRight 0.4s ease-out !important;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Role Watermark */
+#roleWatermark {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    font-size: 100px !important;
+    color: rgba(255, 100, 100, 0.08) !important;
+    pointer-events: none !important;
+    z-index: 9999 !important;
+    font-weight: bold !important;
+    letter-spacing: 15px !important;
+    user-select: none !important;
+}
+
+@media (max-width: 768px) {
+    #roleWatermark {
+        font-size: 60px !important;
+        letter-spacing: 8px !important;
+    }
+}
+
+#passphraseModal input,
+#passphraseModal button,
+#businessSetupModal input,
+#businessSetupModal button {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    user-select: text !important;
+}
+
+/* PASSPHRASE MODAL — ALWAYS VISIBLE, NO EXCEPTIONS */
+#passphraseModal,
+#passphraseModal * {
+    all: unset !important;
+    /* optional: nuclear reset */
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 9999999 !important;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+    background: var(--accent) !important;
+    border: 2px dashed #0ff;
+}
+
+.sortable-chosen {
+    opacity: 0.8;
+}
+
+.category-pill {
+    display: inline-block;
+    background: var(--accent);
+    color: black;
+    padding: 6px 10px;
+    border-radius: 20px;
+    margin: 4px 2px;
+    font-size: 14px;
+}
+
+.draggable-item {
+    transition: all 0.2s;
+}
+
+.draggable-item:hover {
+    transform: scale(1.05);
+}
+
+/* ─────── TOASTS & CONFIRM DIALOG ─────── */
+#Toast,
+#ConfirmDialog {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 999999 !important;
+    pointer-events: auto !important;
+    max-width: 90vw !important;
+    max-height: 90vh !important;
+    width: auto !important;
+}
+
+/* The toast-style dialog box */
+.confirmToast {
+    background: linear-gradient(135deg, #332200, #221a00) !important;
+    color: #ffa !important;
+    border: 2px solid #fa5 !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    max-width: 700px !important;
+    max-height: 85vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* The message content — THIS IS THE SCROLLABLE AREA */
+.confirmToast .message {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    max-height: 55vh !important;
+    /* Limits height, enables scroll */
+    padding-right: 16px !important;
+    /* Space for scrollbar */
+    margin: 16px 0 !important;
+    line-height: 1.6 !important;
+    font-size: 16px !important;
+    color: #ffd !important;
+}
+
+/* Custom scrollbar for WebKit browsers (Chrome, Edge, Safari) */
+.confirmToast .message::-webkit-scrollbar {
+    width: 12px;
+}
+
+.confirmToast .message::-webkit-scrollbar-track {
+    background: #111;
+    border-radius: 10px;
+}
+
+.confirmToast .message::-webkit-scrollbar-thumb {
+    background: #fa5;
+    border-radius: 10px;
+    border: 2px solid #332200;
+}
+
+.confirmToast .message::-webkit-scrollbar-thumb:hover {
+    background: #ff9966;
+}
+
+/* Buttons stay at bottom */
+.confirmToast .buttons {
+    margin-top: auto !important;
+    padding-top: 16px !important;
+    border-top: 1px solid #fa5;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 16px !important;
+}
+
+.confirmToast button {
+    padding: 12px 32px !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+    border-radius: 10px !important;
+    min-width: 100px !important;
+}
+
+.confirmToast button:first-child {
+    background: #444 !important;
+    color: #ccc !important;
+}
+
+.confirmToast button:last-child {
+    background: #0f8 !important;
+    color: #000 !important;
+}
+
+.toast-inner.successToast,
+.successToast {
+    background: linear-gradient(135deg, #28a745, #20c997) !important;
+    /* green success */
+    color: white !important;
+    padding: 16px 20px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    max-width: 400px !important;
+    font-size: 15px !important;
+}
+
+.toast-inner.failToast,
+.failToast {
+    background: linear-gradient(135deg, #dc3545, #c82333) !important;
+    /* red fail/error */
+    color: white !important;
+    padding: 16px 20px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 20px rgba(220, 53, 69, 0.3) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    max-width: 400px !important;
+    font-size: 15px !important;
+}
+
+.toast-inner.infoToast,
+.infoToast {
+    background: linear-gradient(135deg, #17a2b8, #138496) !important;
+    /* cyan/blue info */
+    color: white !important;
+    padding: 16px 20px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 20px rgba(23, 162, 184, 0.3) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    max-width: 400px !important;
+    font-size: 15px !important;
+}
+
+/* Default/fallback for unknown types */
+.toast-inner {
+    background: #6c757d !important;
+    /* gray fallback */
+    color: white !important;
+    padding: 16px 20px !important;
+    border-radius: 10px !important;
+}
+
+/* Optional: Make icon bigger/bolder */
+.toast-icon {
+    font-size: 24px !important;
+    font-weight: bold !important;
+    min-width: 30px !important;
+    text-align: center !important;
+}
+
+/* Animations */
+@keyframes toastPop {
+    0% {
+        transform: translateX(-50%) translateY(100px) scale(0.6);
+        opacity: 0;
+    }
+
+    80% {
+        transform: translateX(-50%) translateY(-12px) scale(1.02);
+    }
+
+    100% {
+        transform: translateX(-50%) translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes toastOut {
+    to {
+        transform: translateX(-50%) translateY(80px) scale(0.8);
+        opacity: 0;
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
