@@ -27,15 +27,18 @@ const Calculator = {
         let w = 0;
 
         const recipe = App.state.recipes[item];
-        const recipeWeight = recipe?.weight;
-
-        // PRIORITY 1: Recipe has explicit weight → use it
-        if (recipeWeight !== undefined && recipeWeight !== null) {
-            w = recipeWeight;
+        if (recipe?.weight !== undefined && recipe.weight !== null) {
+            w = Number(recipe.weight);
+        } else if (App.state.rawPrice[item]?.weight !== undefined) {
+            w = Number(App.state.rawPrice[item].weight);
         }
-        // PRIORITY 2: Raw material weight (even if recipe exists!)
-        else if (App.state.rawPrice[item]?.weight !== undefined) {
-            w = App.state.rawPrice[item].weight;
+
+        // Fallback: tools usually have small weight
+        if (isNaN(w) || w === 0) {
+            // Optional: detect tool-like names
+            if (/hammer|knife|tool|screwdriver|solder/i.test(item)) {
+                w = 0.5; // example default for tools
+            }
         }
 
         this.weights[item] = w;
@@ -65,9 +68,28 @@ const Calculator = {
         }
 
         let total = 0;
-        for (const [ing, qty] of Object.entries(recipe.i)) {
-            const ingCost = this.cost(ing); // RECURSIVE CALL
-            total += (Number(ingCost) || 0) * qty;
+
+
+        for (const [ing, spec] of Object.entries(recipe.i)) {
+            const ingCost = this.cost(ing); // recursive
+
+            let contribution = 0;
+
+            if (typeof spec === 'number') {
+                // Full consume → classic
+                contribution = ingCost * spec;
+            }
+            else if (spec?.percent !== undefined) {
+                const fraction = Number(spec.percent) / 100;
+                const safeFraction = Math.max(0, Math.min(1, fraction));
+                contribution = ingCost * safeFraction;
+            }
+            else {
+                console.warn(`Invalid ingredient spec in ${item} → ${ing}:`, spec);
+                contribution = 0;
+            }
+
+            total += Number(contribution) || 0;
         }
 
         const yieldAmount = Number(recipe.y) || 1;
@@ -98,7 +120,15 @@ const Calculator = {
         const r = App.state.recipes[item];
         const isRaw = !r || !r.i || Object.keys(r.i).length === 0;
         const stock = App.state.warehouseStock[item] || 0;
-        const needed = qty;
+        // ────────────────────────────────────────────────
+        // Safety: qty must be a number (protect against percent objects)
+        // ────────────────────────────────────────────────
+        let needed = Number(qty);
+        if (isNaN(needed) || needed <= 0) {
+            // If qty is invalid (e.g. passed {percent:10} by mistake), skip this node
+            console.debug(`Skipping invalid qty for ${item} in path ${path.join("→")}:`, qty);
+            return '';
+        }
         const canUseStock = !isRaw && stock >= needed;
         const userChoice = Calculator.liveToggle[key] ?? "craft";
 
@@ -114,7 +144,7 @@ const Calculator = {
                 itemWeight = seedData.finalWeight;
             }
         }
-        const totalWeight = (qty * itemWeight).toFixed(3);
+        const totalWeight = (needed * itemWeight).toFixed(3);
 
         let html = `<div class="tree-item" style="margin-left:${depth * 24}px;display:flex;align-items:center;gap:8px;position:relative;">`;
 
@@ -157,7 +187,7 @@ const Calculator = {
                 topLevelCost = Number(rawPrice) * qty;
             }
         } else if (userChoice !== "warehouse") {
-            topLevelCost = this.cost(item) * qty;
+            topLevelCost = this.cost(item) * needed;
         }
 
         // Only show cost on main line for:
@@ -177,8 +207,15 @@ const Calculator = {
             ? `<strong style="color:#0f8; margin-left:12px; font-size:16px;">$${topLevelCost.toFixed(2)}</strong>`
             : (showCostLine ? '<span style="color:#666; margin-left:12px;">—</span>' : '');
 
-        html += `<strong style="color:var(--accent);">${qty} × ${item}</strong>`;
+        const displayQty = Number(qty.toFixed(4)).toString().replace(/\.?0+$/, '') || '0';
+        let qtyDisplay = `${displayQty} × ${item}`;
+        if (qty < 1 && qty > 0) {
+            qtyDisplay = `<span style="color:#ff9800; font-style:italic;">${qtyDisplay} (partial)</span>`;
+        }
+
+        html += `<strong style="color:var(--accent);">${qtyDisplay}</strong>`;
         html += ` <small style="color:#0af;font-weight:bold;">(${totalWeight}kg)</small>`;
+
         if (showCostLine) html += costDisplay;
 
         if (!isRaw) {
@@ -259,7 +296,7 @@ const Calculator = {
 
                 return html += `
                     <div style="margin-left:${(depth + 1) * 24}px; color:#0f8; font-style:italic; padding:8px 12px; background:#001122; border-radius:6px; margin-top:8px; font-size:14px;">
-                        <strong>Using ${needed} × ${item} from warehouse</strong><br>
+                        <strong>Using ${needed.toFixed(0)} × ${item} from warehouse</strong><br>
                         <span style="color:#0cf;">Cost: ${unitDisplay} → $${totalCost} ${note ? `(${note})` : ""}</span>
                         <span style="margin-left:12px; color:#0af;">(${totalWeight}kg)</span>
                     </div>`;
@@ -313,18 +350,61 @@ const Calculator = {
             }
 
             rawHTML += `</div>`;
+
+            // Force display even for fractional qty
+            let displayQty = Number(qty).toFixed(2).replace(/\.?0+$/, '') || '0';
+
+            rawHTML += `
+            <div style="margin-left:${(depth + 1) * 24}px; padding:6px 0;">
+                <div style="color:#ff9800; font-weight:bold;">
+                    ${displayQty} × ${item} ${qty < 1 ? '(durability / partial use)' : ''}
+                </div>
+                <!-- keep existing market/crafted toggle if desired -->
+            </div>`;
+
             return html + rawHTML;
         }
-
-
 
         // Normal crafting tree — only runs when crafting (not using warehouse)
         const batches = Math.ceil(qty / (r?.y || 1));
         html += `<div class="tree">`;
-        for (const [ing, q] of Object.entries(r.i || {})) {
-            html += this.buildTree(ing, q * batches, depth + 1, path.concat(item));
+
+        for (const [ing, spec] of Object.entries(r.i || {})) {
+            let childQty = 0;
+            let isPercentage = false;
+
+            if (typeof spec === 'number') {
+                // Standard full-consume ingredient
+                childQty = spec * batches;
+            } else if (spec && typeof spec === 'object' && spec.percent !== undefined) {
+                // Percentage durability usage → show fractional "quantity"
+                const fractionPerCraft = Number(spec.percent) / 100;
+                childQty = fractionPerCraft * batches;
+                isPercentage = true;
+            } else {
+                console.warn(`Invalid spec for ${ing} in recipe ${item}:`, spec);
+                continue;
+            }
+
+            // Skip if effectively zero usage
+            if (childQty <= 0) continue;
+
+            // Call recursively with the (possibly fractional) quantity
+            let childHtml = this.buildTree(ing, childQty, depth + 1, path.concat(item));
+
+            // Optional: add visual indicator for percentage items
+            if (isPercentage && childHtml) {
+                // Insert hint right before the item name
+                childHtml = childHtml.replace(
+                    /<strong style="color:var\(--accent\);">/,
+                    `<strong style="color:var(--accent);"><span style="color:#ff9800; font-size:0.9em;">(durability) </span>`
+                );
+            }
+
+            html += childHtml;
         }
-        return html + `</div>`;
+
+        html += `</div>`;
     },
 
     run() {
@@ -444,9 +524,29 @@ const Calculator = {
                 return;
             }
 
+            // ────────────────────────────────────────────────
+            // MAIN RECIPE EXPANSION – now skips durability % tools
+            // ────────────────────────────────────────────────
             const batches = Math.ceil(qty / (recipe.y || 1));
-            for (const [ing, q] of Object.entries(recipe.i)) {
-                expandToRaw(ing, q * batches, path.concat(item));
+
+            for (const [ing, spec] of Object.entries(recipe.i)) {
+                let subQty = 0;
+
+                if (typeof spec === 'number') {
+                    subQty = spec * batches;           // full items needed
+                }
+                else if (spec && spec.percent) {
+                    // Durability % → tool is NOT expanded / consumed fully
+                    // Do NOT add to totalRaw — it's not a raw material need
+                    // (you may want to track tool usage separately later)
+                    continue;
+                }
+                else {
+                    console.warn(`Skipping invalid spec in expansion: ${ing} in ${item}`);
+                    continue;
+                }
+
+                expandToRaw(ing, subQty, path.concat(item));
             }
         };
 
@@ -504,6 +604,27 @@ const Calculator = {
                 <td>$${(sellPrice * o.qty).toFixed(2)}</td>
             </tr>`;
         });
+
+        const toolUsage = {};
+        let hasTools = false;
+
+        App.state.order.forEach(o => {
+            const recipe = App.state.recipes[o.item];
+            if (!recipe?.i) return;
+
+            const effectiveCrafts = o.qty / (recipe.y || 1);  // exact crafts
+
+            for (const [ing, spec] of Object.entries(recipe.i)) {
+                if (spec?.percent !== undefined) {
+                    const fraction = Number(spec.percent) / 100;
+                    const usage = fraction * effectiveCrafts;
+
+                    toolUsage[ing] = (toolUsage[ing] || 0) + usage;
+                    hasTools = true;
+                }
+            }
+        });
+        
 
         // ──────── COMPUTE GRAND COST (updated for new option) ────────
         grandCost = 0;
@@ -643,54 +764,125 @@ const Calculator = {
     },
 
     generateRawTableHTML(totalRaw, finalProductWeight, grandSell) {
-        let html = `<table style="width:100%;border-collapse:collapse;"><thead><tr>
-            <th>Item</th><th>Needed</th><th>Cost/Unit</th><th>Total Cost</th><th>Recyclable Boxes Needed</th>
-        </tr></thead><tbody>`;
-        let tableTotalCost = 0;
-        let totalBoxesNeeded = 0;  // we'll sum this for a footer row
+        let html = `<table style="width:100%;border-collapse:collapse; margin-bottom:24px;">
+            <thead>
+                <tr style="background:#222; color:#fff;">
+                    <th>Item</th>
+                    <th>Needed</th>
+                    <th>Cost/Unit</th>
+                    <th>Total Cost</th>
+                    <th>Recyclable Boxes Needed</th>
+                </tr>
+            </thead>
+            <tbody>`;
 
+        let rawTotalCost = 0;
+        let totalBoxes = 0;
+
+        // ─── Raw Materials Section ───
         for (const [item, data] of Object.entries(totalRaw)) {
-            const qty = data.qty;
-            // Use recorded unitCost if available, otherwise fall back to this.cost(item)
-            const unitCost = data.unitCost !== undefined ? data.unitCost : this.cost(item);
-            const cost = unitCost * qty;
-            tableTotalCost += cost;
+            const qty = Number(data.qty) || 0;
+            if (qty <= 0) continue;
 
-            // Calculate boxes needed for this material
+            const unitCost = Number(data.unitCost ?? this.cost(item)) || 0;
+            const cost = unitCost * qty;
+            rawTotalCost += cost;
+
             const boxesPerUnit = RECYCLING_BOX_RATES[item] || 0;
-            const boxesForThis = qty * boxesPerUnit;
-            totalBoxesNeeded += boxesForThis;
+            const boxes = qty * boxesPerUnit;
+            totalBoxes += boxes;
 
             const boxesDisplay = boxesPerUnit > 0
-                ? `${boxesForThis.toLocaleString()} <small>(${boxesPerUnit}/unit)</small>`
+                ? `${boxes.toLocaleString()} <small>(${boxesPerUnit}/unit)</small>`
                 : "—";
 
             html += `<tr>
                 <td>${item}</td>
-                <td>${qty}</td>
-                <td>$${unitCost.toFixed(2)}</td>
-                <td>$${cost.toFixed(2)}</td>
+                <td style="text-align:right;">${qty.toLocaleString()}</td>
+                <td style="text-align:right;">$${unitCost.toFixed(4)}</td>
+                <td style="text-align:right;">$${cost.toFixed(2)}</td>
                 <td style="text-align:right; ${boxesPerUnit > 0 ? 'color:#ff9800; font-weight:bold;' : 'color:#666;'}">
-                ${boxesDisplay}
-            </td>
+                    ${boxesDisplay}
+                </td>
             </tr>`;
         }
 
-        html += `<tr style="font-weight:bold;background:#111;">
-            <td colspan="往下3">Total Raw Cost</td>
-            <td>&nbsp;</td>
-            <td>&nbsp;</td>
-            <td>$${tableTotalCost.toFixed(2)}</td>
+        html += `<tr style="font-weight:bold; background:#111; color:#fff;">
+            <td colspan="3">Total Raw Materials Cost</td>
+            <td  style="text-align:right;">$${rawTotalCost.toFixed(2)}</td>
             <td style="text-align:right; color:#ff9800;">
-            ${totalBoxesNeeded > 0 ? totalBoxesNeeded.toLocaleString() : "—"}
-        </td>
+                ${totalBoxes > 0 ? totalBoxes.toLocaleString() : "—"}
+            </td>
         </tr></tbody></table>`;
 
-        if (totalBoxesNeeded > 0) {
-            html += `<p style="font-size:0.9em; color:#888; margin-top:8px; text-align:right;">
-                Boxes needed = quantity × recycling rate
+        // ─── Tools / Durability Section ───
+        let toolsTotalCost = 0;
+        let toolUsage = {};
+
+        // Collect tool usage from order (since expandToRaw skips them)
+        App.state.order.forEach(o => {
+            const recipe = App.state.recipes[o.item];
+            if (!recipe?.i) return;
+
+            const effectiveCrafts = o.qty / (recipe.y || 1); // exact crafts, not ceiled
+
+            for (const [ing, spec] of Object.entries(recipe.i)) {
+                if (spec?.percent !== undefined) {
+                    const fraction = Number(spec.percent) / 100;
+                    const usage = fraction * effectiveCrafts;
+
+                    if (!toolUsage[ing]) toolUsage[ing] = 0;
+                    toolUsage[ing] += usage;
+                }
+            }
+        });
+
+        if (Object.keys(toolUsage).length > 0) {
+            html += `<h3 style="color:#ff9800; margin:24px 0 12px;">Tools & Equipment (Durability Usage)</h3>
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#331a00; color:#fff;">
+                            <th>Tool</th>
+                            <th>Durability Used</th>
+                            <th>Approx. Tools Needed</th>
+                            <th>Cost Contribution</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            for (const [tool, totalUsage] of Object.entries(toolUsage)) {
+                const displayUsage = Number(totalUsage.toFixed(3)).toString().replace(/\.?0+$/, '');
+                const displayText = totalUsage >= 1
+                    ? `${displayUsage} full uses`
+                    : `${displayUsage} partial`;
+
+                const toolUnitCost = this.cost(tool) || 0;
+                const toolCostContribution = toolUnitCost * totalUsage;
+                toolsTotalCost += toolCostContribution;
+
+                html += `<tr>
+                    <td>${tool}</td>
+                    <td style="text-align:right;">${displayUsage}% total</td>
+                    <td style="text-align:right; font-weight:bold;">${displayText}</td>
+                    <td style="text-align:right; color:#ff9800;">$${toolCostContribution.toFixed(2)}</td>
+                </tr>`;
+            }
+
+            html += `<tr style="font-weight:bold; background:#220d00; color:#fff;">
+                <td colspan="3">Total Tools Cost Contribution</td>
+                <td style="text-align:right;">$${toolsTotalCost.toFixed(2)}</td>
+            </tr></tbody></table>
+    
+            <p style="font-size:0.9em; color:#aaa; margin-top:8px;">
+                These are amortized costs — actual tool replacement depends on current durability.
             </p>`;
         }
+
+        // Grand total line
+        const grandTotalCost = rawTotalCost + toolsTotalCost;
+        html += `<div style="margin-top:20px; font-size:1.2em; font-weight:bold; text-align:right; color:#0ff;">
+            Grand Total Production Cost: $${grandTotalCost.toFixed(2)}
+        </div>`;
 
         return html;
     }

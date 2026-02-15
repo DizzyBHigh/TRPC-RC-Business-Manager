@@ -12,15 +12,56 @@ function toProperCase(str) {
 const RecipeEditor = {
     addRow(mode) {
         const cont = document.getElementById(mode + "Ingredients");
+        if (!cont) {
+            console.warn(`Container #${mode}Ingredients not found`);
+            return;
+        }
+
         const row = document.createElement("div");
         row.className = "ingredient-row";
+        row.style.cssText = "display:flex; gap:12px; align-items:center; margin:10px 0; padding:8px; background:#0d1117; border-radius:6px; border:1px solid #222;";
+
         row.innerHTML = `
-            <div class="searchable-select">
-                <input type="text" placeholder="Ingredient" oninput="RecipeEditor.filterIng(this)">
-                <div class="options"></div>
+            <div class="searchable-select" style="flex:1; position:relative;">
+                <input type="text" placeholder="Ingredient or Tool" oninput="RecipeEditor.filterIng(this)" style="width:100%; padding:6px;">
+                <div class="options" style="display:none; position:absolute; background:#000; border:1px solid #444; max-height:180px; overflow-y:auto; z-index:5; width:100%;"></div>
             </div>
-            <input type="number" value="1" min="1" style="width:80px;">
-            <button class="danger small" onclick="this.parentNode.remove()">Remove</button>`;
+            <input type="number" class="qty-input" value="1" min="0.1" step="0.1" style="width:110px; padding:6px;" placeholder="Qty / %">
+            <select class="usage-type" style="width:150px; padding:6px; background:#111; color:#eee; border:1px solid #444; border-radius:4px;">
+                <option value="full">Full consume</option>
+                <option value="percent">Durability %</option>
+            </select>
+            <button class="danger small" onclick="this.parentNode.remove()" style="padding:6px 12px; font-size:13px;">Remove</button>
+        `;
+
+        // Live UI sync when changing type
+        const qtyInput = row.querySelector(".qty-input");
+        const typeSelect = row.querySelector(".usage-type");
+
+        const updateUI = () => {
+            if (!qtyInput || !typeSelect) return;
+            if (typeSelect.value === "percent") {
+                let v = parseFloat(qtyInput.value);
+                if (isNaN(v) || v > 100) qtyInput.value = "10";
+                if (v < 0.1 && v > 0) qtyInput.value = "0.1";
+                qtyInput.placeholder = "0.1–100 %";
+                qtyInput.max = "100";
+                qtyInput.step = "0.1";
+            } else {
+                let v = parseFloat(qtyInput.value);
+                if (isNaN(v) || v < 1) qtyInput.value = "1";
+                qtyInput.placeholder = "Quantity";
+                qtyInput.removeAttribute("max");
+                qtyInput.step = "1";
+            }
+        };
+
+        typeSelect.addEventListener("change", updateUI);
+        qtyInput.addEventListener("input", updateUI);
+
+        // Run once on creation
+        updateUI();
+
         cont.appendChild(row);
     },
 
@@ -70,9 +111,13 @@ const RecipeEditor = {
             let ingredientsList = "—";
             if (recipe.i && Object.keys(recipe.i).length > 0) {
                 ingredientsList = Object.entries(recipe.i)
-                    .map(([ing, qty]) => {
-                        const ingCost = Calculator.cost(ing) || 0;
-                        return `${qty}× ${ing} ($${(ingCost * qty).toFixed(2)})`;
+                    .map(([ing, spec]) => {
+                        if (typeof spec === "number") {
+                            return `${spec}× ${ing}`;
+                        } else if (spec?.percent) {
+                            return `${spec.percent}% ${ing} (durability)`;
+                        }
+                        return `?× ${ing}`;
                     })
                     .join("<br>");
             }
@@ -196,27 +241,109 @@ const RecipeEditor = {
     },
 
     load(name, isDuplicating = false) {
-        if (!name || !App.state.recipes[name]) return;
+        if (!App.state.recipes[name]) return showToast("fail", "Recipe not found");
 
         const r = App.state.recipes[name];
         const editArea = document.getElementById("editArea");
         editArea.style.display = "block";
 
-        // Clone the create form
-        editArea.innerHTML = document.getElementById("createRecipeForm").outerHTML
+        // Clone template safely
+        const template = document.getElementById("createRecipeForm");
+        if (!template) {
+            console.error("createRecipeForm template missing!");
+            return;
+        }
+
+        let html = template.outerHTML
             .replace(/createRecipeForm/g, "editRecipeForm")
-            .replace(/Create New Recipe/g, isDuplicating
-                ? `Duplicating: <span style="color:#ff0; font-weight:bold;">${name}</span>`
-                : `Editing: <span style="color:#ff0; font-weight:bold;">${name}</span>`)
             .replace(/newItemName/g, "editItemName")
             .replace(/newItemYield/g, "editYield")
             .replace(/newItemWeight/g, "editWeight")
             .replace(/newIngredients/g, "editIngredients")
-            .replace(/RecipeEditor\.addRow\('new'\)/g, "RecipeEditor.addRow('edit')");
+            .replace(/RecipeEditor\.addRow\('new'\)/g, "RecipeEditor.addRow('edit')")
+            .replace(/Create New Recipe/g, isDuplicating ?
+                `Duplicating: <span style="color:#ff0;">${name}</span>` :
+                `Editing: <span style="color:#ff0;">${name}</span>`);
 
-        // REMOVE CREATE BUTTON
-        const createBtn = editArea.querySelector('button[onclick*="RecipeEditor.create()"]');
-        if (createBtn) createBtn.closest('div').remove();
+        editArea.innerHTML = html;
+
+        // Remove create button
+        editArea.querySelector('button[onclick*="RecipeEditor.create()"]')?.closest('div')?.remove();
+
+        // Add original name tracker
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.id = "originalRecipeName";
+        hidden.value = name;
+        editArea.appendChild(hidden);
+
+        // Populate
+        document.getElementById("editItemName").value = isDuplicating ? name + " (Copy)" : name;
+        document.getElementById("editYield").value = r.y || 1;
+        document.getElementById("editWeight").value = (r.weight || 0).toFixed(2);
+
+        const ingContainer = document.getElementById("editIngredients");
+        if (!ingContainer) {
+            console.error("editIngredients container missing after load");
+            return;
+        }
+
+        ingContainer.innerHTML = "";
+
+        if (r.i) {
+            Object.entries(r.i).forEach(([ing, spec]) => {
+                RecipeEditor.addRow("edit");
+                const lastRow = ingContainer.lastElementChild;
+                if (!lastRow) {
+                    console.warn("Failed to add row for:", ing);
+                    return;
+                }
+        
+                // Set ingredient name
+                const textInput = lastRow.querySelector('input[type="text"]');
+                if (textInput) {
+                    textInput.value = ing;
+                } else {
+                    console.warn("No text input in row for:", ing);
+                }
+        
+                const qtyInput   = lastRow.querySelector(".qty-input");
+                const typeSelect = lastRow.querySelector(".usage-type");
+        
+                // Only try to set if both elements exist
+                if (qtyInput && typeSelect) {
+                    if (typeof spec === "number") {
+                        // Classic full quantity
+                        typeSelect.value = "full";
+                        qtyInput.value = spec;
+                    }
+                    else if (spec && typeof spec === "object" && spec.percent !== undefined) {
+                        // Percentage mode — this is the key part that's probably missing/broken now
+                        typeSelect.value = "percent";
+                        qtyInput.value = spec.percent;
+                        console.log(`Restored percentage for ${ing}: ${spec.percent}%`);
+                    }
+                    else {
+                        console.warn(`Unknown spec format for ${ing}:`, spec);
+                        typeSelect.value = "full";
+                        qtyInput.value = 1;
+                    }
+
+                    // Force UI update (very important!)
+                    typeSelect.dispatchEvent(new Event("change"));
+                } else {
+                    console.warn(`Row for ${ing} missing .qty-input or .usage-type — using fallback`);
+                    // Fallback for old rows (if any still exist)
+                    const fallbackInput = lastRow.querySelector('input[type="number"]');
+                    if (fallbackInput) {
+                        fallbackInput.value = typeof spec === "number" ? spec : (spec?.percent || 1);
+                    }
+                }
+            });
+        } else {
+            // No ingredients — add one empty row for convenience
+            RecipeEditor.addRow("edit");
+        }
 
         // INSERT ACTION BUTTONS — HIDE DELETE & DUPLICATE WHEN DUPLICATING
         const ingredientsBox = editArea.querySelector("div[style*='background:#000814']");
@@ -364,48 +491,133 @@ const RecipeEditor = {
 
     // Helper method to do the actual save (keeps code clean and avoids duplication)
     performSave(properNewName, originalName) {
-        // Build recipe
-        const ingredients = {};
-        document.querySelectorAll("#editIngredients .ingredient-row").forEach(r => {
-            const ing = r.querySelector("input[type=text]").value.trim();
-            const qty = parseInt(r.querySelector("input[type=number]").value) || 1;
-            if (ing) ingredients[ing] = qty;
+        const editContainer = document.getElementById("editIngredients");
+        if (!editContainer) {
+            showToast("fail", "Edit form container not found – cannot save ingredients");
+            return;
+        }
+
+
+        /* const ingredients = {}; SAVE TESTING!!!!
+        const rows = editContainer.querySelectorAll(".ingredient-row");
+
+        console.log(`Found ${rows.length} ingredient rows when saving`);
+
+        rows.forEach((row, index) => {
+            const ingInput = row.querySelector('input[type="text"]');
+            const qtyInput = row.querySelector(".qty-input");
+            const typeSelect = row.querySelector(".usage-type");
+
+            const ingName = ingInput?.value?.trim() || "(no name)";
+
+            console.group(`Row ${index + 1} — ${ingName}`);
+
+            console.log("  - Text input exists:", !!ingInput);
+            console.log("  - Qty input exists:", !!qtyInput);
+            console.log("  - Type select exists:", !!typeSelect);
+
+            if (!ingName) {
+                console.warn("  → Skipped: no ingredient name");
+                console.groupEnd();
+                return;
+            }
+
+            let rawValue = 0;
+            if (qtyInput) {
+                rawValue = parseFloat(qtyInput.value) || 0;
+                console.log("  - Raw value from input:", qtyInput.value, "→ parsed:", rawValue);
+            } else {
+                console.warn("  - No .qty-input found — using fallback");
+            }
+
+            const usageType = typeSelect?.value || "unknown";
+            console.log("  - Selected usage type:", usageType);
+
+            if (rawValue <= 0) {
+                console.warn("  → Skipped: value ≤ 0");
+                console.groupEnd();
+                return;
+            }
+
+            let savedValue;
+            if (usageType === "percent") {
+                const percent = Math.min(100, Math.max(0.1, rawValue));
+                savedValue = { percent: percent };
+                console.log("  → Saving as PERCENT:", savedValue);
+            } else {
+                savedValue = Math.round(rawValue);
+                console.log("  → Saving as FULL quantity:", savedValue);
+            }
+
+            ingredients[ingName] = savedValue;
+            console.groupEnd();
         });
 
+        console.log("Final ingredients object to be saved:", ingredients);
+ */
+
+        // Build recipe
+        const ingredients = {};
+        const rows = editContainer.querySelectorAll(".ingredient-row");
+        if (rows.length === 0) {
+            showToast("warning", "No ingredients added – saving empty recipe");
+        }
+
+        rows.forEach(row => {
+            const ingInput = row.querySelector('input[type="text"]');
+            const qtyInput = row.querySelector(".qty-input");
+            const typeSelect = row.querySelector(".usage-type");
+
+            const ing = ingInput?.value?.trim();
+            if (!ing) return;
+
+            const rawValue = parseFloat(qtyInput?.value) || 0;
+            if (rawValue <= 0) return;
+
+            const usageType = typeSelect?.value;
+
+            if (usageType === "percent") {
+                const percent = Math.min(100, Math.max(0.1, rawValue));
+                ingredients[ing] = { percent: percent };
+            } else {
+                // Full consume – store as number (classic format)
+                ingredients[ing] = Math.round(rawValue); // or keep float if you prefer
+            }
+        });
+
+        const yieldInput = document.getElementById("editYield");
         const weightInput = document.getElementById("editWeight");
-        const weight = weightInput ? parseFloat(weightInput.value) : 0;
-        const safeWeight = isNaN(weight) ? 0 : weight;
 
         const recipe = {
             i: ingredients,
-            y: parseInt(document.getElementById("editYield").value) || 1,
-            weight: safeWeight
+            y: parseInt(yieldInput?.value) || 1,
+            weight: weightInput ? parseFloat(weightInput.value) || 0 : 0
         };
 
-        // Only delete old name if it's different and valid
+        // Debug: log what we're about to save
+        console.log("Saving recipe:", properNewName, recipe);
+
+        // ─── Name change handling ───
         if (originalName && originalName !== properNewName) {
+            delete App.state.recipes[originalName];
+            // Firestore delete (already in your code)
             SHARED_DOC_REF.update({
                 [`recipes.${originalName}`]: firebase.firestore.FieldValue.delete()
-            }).catch(err => console.warn("Failed to delete old recipe name:", err));
+            }).catch(err => console.warn("Firestore delete failed:", err));
         }
 
-        // Save new/updated recipe
         App.state.recipes[properNewName] = recipe;
-        App.save("recipes");
+        App.save("recipes").then(() => {
+            console.log("Save completed:", properNewName);
+            showToast("success", `"${properNewName}" saved (${Object.keys(ingredients).length} ingredients)`);
 
-        // Clean up UI
-        document.getElementById("editArea").style.display = "none";
-        document.getElementById("recipeSearch").value = "";  // ← CLEAR SEARCH
-        showToast("success", `"${properNewName}" saved successfully!`);
-        RecipeEditor.renderRecipeTable();  // Full render with ALL recipes
-        // Optional: Re-search for the recipe to scroll to it
-        setTimeout(() => {
-            const search = document.getElementById("recipeSearch");
-            if (search) {
-                search.value = properNewName;
-                search.dispatchEvent(new Event("input"));  // Trigger filter to highlight it
-            }
-        }, 100);
+            document.getElementById("editArea").style.display = "none";
+            RecipeEditor.renderRecipeTable();           // full refresh
+            RecipeEditor.filterRecipes("");             // show all
+        }).catch(err => {
+            console.error("Save failed:", err);
+            showToast("fail", "Failed to save recipe");
+        });
     },
 
     async del() {
