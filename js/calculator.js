@@ -2,6 +2,20 @@
 // Calculator App — NOW WITH LIVE WEIGHT TRACKING
 // ========================
 let craftingSourceMode = "craft";  // "craft" or "warehouse" — live only
+
+// Recycling rates: how many Recyclable Boxes needed to get 1 unit of each material
+const RECYCLING_BOX_RATES = {
+    "Rubber": 2,
+    "Iron": 2,
+    "Aluminium": 1,
+    "Electronic Parts": 4,
+    "Copper": 3,
+    "Metal Scrap": 2,
+    "Glass": 2,
+    "Plastic": 1
+    // Add more materials here in the future if needed
+};
+
 const Calculator = {
     liveToggle: {},
     weights: {},
@@ -630,9 +644,10 @@ const Calculator = {
 
     generateRawTableHTML(totalRaw, finalProductWeight, grandSell) {
         let html = `<table style="width:100%;border-collapse:collapse;"><thead><tr>
-            <th>Item</th><th>Needed</th><th>Cost/Unit</th><th>Total Cost</th>
+            <th>Item</th><th>Needed</th><th>Cost/Unit</th><th>Total Cost</th><th>Recyclable Boxes Needed</th>
         </tr></thead><tbody>`;
         let tableTotalCost = 0;
+        let totalBoxesNeeded = 0;  // we'll sum this for a footer row
 
         for (const [item, data] of Object.entries(totalRaw)) {
             const qty = data.qty;
@@ -641,18 +656,41 @@ const Calculator = {
             const cost = unitCost * qty;
             tableTotalCost += cost;
 
+            // Calculate boxes needed for this material
+            const boxesPerUnit = RECYCLING_BOX_RATES[item] || 0;
+            const boxesForThis = qty * boxesPerUnit;
+            totalBoxesNeeded += boxesForThis;
+
+            const boxesDisplay = boxesPerUnit > 0
+                ? `${boxesForThis.toLocaleString()} <small>(${boxesPerUnit}/unit)</small>`
+                : "—";
+
             html += `<tr>
                 <td>${item}</td>
                 <td>${qty}</td>
-                <td>$${unitCost.toFixed(4)}</td>
+                <td>$${unitCost.toFixed(2)}</td>
                 <td>$${cost.toFixed(2)}</td>
+                <td style="text-align:right; ${boxesPerUnit > 0 ? 'color:#ff9800; font-weight:bold;' : 'color:#666;'}">
+                ${boxesDisplay}
+            </td>
             </tr>`;
         }
 
         html += `<tr style="font-weight:bold;background:#111;">
             <td colspan="往下3">Total Raw Cost</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
             <td>$${tableTotalCost.toFixed(2)}</td>
+            <td style="text-align:right; color:#ff9800;">
+            ${totalBoxesNeeded > 0 ? totalBoxesNeeded.toLocaleString() : "—"}
+        </td>
         </tr></tbody></table>`;
+
+        if (totalBoxesNeeded > 0) {
+            html += `<p style="font-size:0.9em; color:#888; margin-top:8px; text-align:right;">
+                Boxes needed = quantity × recycling rate
+            </p>`;
+        }
 
         return html;
     }
