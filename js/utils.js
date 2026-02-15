@@ -578,6 +578,14 @@ if (isManager()) {  // Your manager check
     setInterval(autoBackupToFile, 180 * 60 * 1000);
 }
 
+function formatCurrency(value) {
+    if (value === undefined || isNaN(value)) return '$0.00';
+    return '' + Number(value).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
 /* function updatePageTitleAndHeader() {
     if (App.state.businessConfig?.name) {
         document.title = `${App.state.businessConfig.name} - HSRP Manager`;

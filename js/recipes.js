@@ -87,8 +87,17 @@ const RecipeEditor = {
             // === TRUE RECIPE COST FROM INGREDIENTS ===
             let recipeCost = 0;
             if (recipe.i && Object.keys(recipe.i).length > 0) {
-                for (const [ing, qty] of Object.entries(recipe.i)) {
-                    recipeCost += (Calculator.cost(ing) || 0) * qty;
+                for (const [ing, spec] of Object.entries(recipe.i)) {
+                    const ingCost = Calculator.cost(ing) || 0;
+
+                    if (typeof spec === 'number') {
+                        recipeCost += ingCost * spec;
+                    } else if (spec && spec.percent !== undefined) {
+                        const fraction = Number(spec.percent) / 100;
+                        recipeCost += ingCost * fraction;
+                    } else {
+                        console.warn(`Invalid spec in recipe ${item} for ${ing}`);
+                    }
                 }
                 recipeCost = recipeCost / yieldAmt;
             }
@@ -97,13 +106,13 @@ const RecipeEditor = {
             const rawPrice = App.state.rawPrice[item]?.price || 0;
 
             // === BUILD COST DISPLAY ===
-            let costDisplay = `<div style="font-weight:bold; color:#0f8;">Recipe: $${recipeCost.toFixed(2)}</div>`;
+            let costDisplay = `<div style="font-weight:bold; color:#0f8;">Recipe: ${formatCurrency(recipeCost)}</div>`;
             if (rawPrice > 0) {
                 const color = rawPrice < recipeCost ? "#0f8" : "#fa5"; // green if cheaper than crafting
                 costDisplay = `
-                    <div style="color:#0af; font-size:0.9em;">Market: $${rawPrice.toFixed(2)}</div>
+                    <div style="color:#0af; font-size:0.9em;">Market: ${formatCurrency(rawPrice)}</div>
                     ${costDisplay}
-                    ${rawPrice < recipeCost ? `<small style="color:#0f8;">(Save $${(recipeCost - rawPrice).toFixed(2)})</small>` : ''}
+                    ${rawPrice < recipeCost ? `<small style="color:#0f8;">(Save ${formatCurrency(recipeCost - rawPrice)})</small>` : ''}
                 `;
             }
 

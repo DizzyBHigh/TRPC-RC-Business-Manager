@@ -115,45 +115,45 @@ const Calculator = {
         }
         return mats;
     },
+    
     buildTree(item, qty = 1, depth = 0, path = [], orderIndex = null) {
         const key = path.concat(item).join("→");
         const r = App.state.recipes[item];
         const isRaw = !r || !r.i || Object.keys(r.i).length === 0;
         const stock = App.state.warehouseStock[item] || 0;
-        // ────────────────────────────────────────────────
-        // Safety: qty must be a number (protect against percent objects)
-        // ────────────────────────────────────────────────
+
+        // Safety: qty must be a number
         let needed = Number(qty);
         if (isNaN(needed) || needed <= 0) {
-            // If qty is invalid (e.g. passed {percent:10} by mistake), skip this node
             console.debug(`Skipping invalid qty for ${item} in path ${path.join("→")}:`, qty);
             return '';
         }
+
         const canUseStock = !isRaw && stock >= needed;
         const userChoice = Calculator.liveToggle[key] ?? "craft";
 
-        // === CROP DETECTION ===
+        // Crop detection
         const isCrop = App.state.seeds && Object.values(App.state.seeds).some(s => s.finalProduct === item);
         const cropKey = `crop→${key}`;
-        const cropChoice = Calculator.liveToggle[cropKey] ?? (canUseStock ? "warehouse" : "grow");  // default unchanged
+        const cropChoice = Calculator.liveToggle[cropKey] ?? (canUseStock ? "warehouse" : "grow");
 
+        // Weight
         let itemWeight = this.weight(item);
         if (isCrop) {
             const seedData = Object.values(App.state.seeds || {}).find(s => s.finalProduct === item);
-            if (seedData?.finalWeight) {
-                itemWeight = seedData.finalWeight;
-            }
+            if (seedData?.finalWeight) itemWeight = seedData.finalWeight;
         }
         const totalWeight = (needed * itemWeight).toFixed(3);
 
-        let html = `<div class="tree-item" style="margin-left:${depth * 24}px;display:flex;align-items:center;gap:8px;position:relative;">`;
+        // Start HTML
+        let html = `<div class="tree-item" style="margin-left:${depth * 24}px; display:flex; align-items:center; gap:8px; position:relative;">`;
 
-        // Remove button (only on order root items)
+        // Remove button for root order items
         if (depth === 0 && orderIndex !== null) {
             html += `<button onclick="removeOrderItemDirectly(${orderIndex})" style="background:#c00;color:white;border:none;padding:2px 8px;border-radius:4px;font-weight:bold;cursor:pointer;font-size:11px;" title="Remove from order">×</button>`;
         }
 
-        // === CROP: Dropdown with new "Warehouse (raw)" option ===
+        // Dropdowns (crop or normal)
         if (isCrop) {
             html += `
                 <select style="font-size:12px;padding:2px;border-radius:4px;background:#000;color:white;border:1px solid #444;"
@@ -162,9 +162,7 @@ const Calculator = {
                     <option value="warehouse" ${cropChoice === "warehouse" ? "selected" : ""}>Use Warehouse (avg) (${stock})</option>
                     <option value="warehouse-raw" ${cropChoice === "warehouse-raw" ? "selected" : ""}>Warehouse (raw) (${stock})</option>
                 </select>`;
-        }
-        // Normal crafting dropdown
-        else if (!isRaw) {
+        } else if (!isRaw) {
             const label = depth === 0 ? `Use Warehouse (${stock} in stock)` : `Use Warehouse (${stock})`;
             html += `
                 <select style="font-size:12px;padding:2px;border-radius:4px;background:#000;color:white;border:1px solid #444;"
@@ -174,7 +172,7 @@ const Calculator = {
                 </select>`;
         }
 
-        // === MAIN ITEM LINE WITH CORRECT PRICE ===
+        // Main item line — ALWAYS show this
         let topLevelCost = 0;
 
         if (isCrop) {
@@ -190,24 +188,7 @@ const Calculator = {
             topLevelCost = this.cost(item) * needed;
         }
 
-        // Only show cost on main line for:
-        // - Raw items
-        // - Warehouse used items
-        // - Crafted items when actually crafting (depth 0 or expanding)
-        let showCostLine = false;
-        if (depth === 0) {
-            showCostLine = true; // always show for top-level items
-        } else if (isRaw) {
-            showCostLine = true; // show for raw children
-        } else if (userChoice === "warehouse" && canUseStock) {
-            showCostLine = true; // show for warehouse items
-        }
-
-        const costDisplay = showCostLine && topLevelCost > 0
-            ? `<strong style="color:#0f8; margin-left:12px; font-size:16px;">$${topLevelCost.toFixed(2)}</strong>`
-            : (showCostLine ? '<span style="color:#666; margin-left:12px;">—</span>' : '');
-
-        const displayQty = Number(qty.toFixed(4)).toString().replace(/\.?0+$/, '') || '0';
+        const displayQty = Number(qty).toFixed(2).replace(/\.?0+$/, '') || '0';
         let qtyDisplay = `${displayQty} × ${item}`;
         if (qty < 1 && qty > 0) {
             qtyDisplay = `<span style="color:#ff9800; font-style:italic;">${qtyDisplay} (partial)</span>`;
@@ -216,38 +197,38 @@ const Calculator = {
         html += `<strong style="color:var(--accent);">${qtyDisplay}</strong>`;
         html += ` <small style="color:#0af;font-weight:bold;">(${totalWeight}kg)</small>`;
 
-        if (showCostLine) html += costDisplay;
-
         if (!isRaw) {
             const batches = Math.ceil(qty / (r?.y || 1));
             html += ` <small style="color:#888;">(${batches} batch${batches > 1 ? "es" : ""})</small>`;
         }
 
+        // Optional: show cost only if meaningful (you can remove this if you want no cost at all)
+        if (topLevelCost > 0) {
+            html += `<strong style="color:#0f8; margin-left:12px; font-size:16px;">$${formatCurrency(topLevelCost)}</strong>`;
+        }
+
         html += `</div>`;
 
-        // === GROW (HARVEST) DETAILED BOX ===
+        // === CROP HARVEST DETAILS (if applicable) ===
         if (isCrop && cropChoice === "grow" && qty > 0) {
             const estimate = Crops.getHarvestEstimate(item, qty);
             const exactCost = Crops.calculateHarvestCostFromEstimate(item, qty);
 
             html += `
             <div style="margin:${depth > 0 ? '12px 0 16px' : '16px 0 20px'} ${depth * 28}px; padding:14px 18px; background:#001a0f; border-left:5px solid #00ff88; border-radius:8px; font-size:14px; line-height:1.5;">
-                
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <strong style="color:#00ff88; font-size:16px;">Grow (Harvest)</strong>
                     <strong style="color:#0ff; font-size:18px;">${qty}× ${item}</strong>
                 </div>
-        
                 <div style="background:rgba(0,255,136,0.15); padding:10px 14px; border-radius:6px; margin:10px 0; border:1px solid rgba(0,255,136,0.3);">
                     <div style="color:#0ff; font-size:13px; margin-bottom:4px;">Exact Cost Today</div>
                     <div style="color:#00ff88; font-weight:bold; font-size:24px;">
-                        $${exactCost.toFixed(2)}
+                    $${formatCurrency(exactCost)}
                         <span style="font-size:14px; color:#0af; margin-left:8px;">
-                            ($${(exactCost / qty).toFixed(4)}/unit)
+                            ($${formatCurrency(exactCost / qty)}/unit)
                         </span>
                     </div>
                 </div>
-        
                 <div style="color:#ccc; font-size:13px;">
                     ${Object.keys(estimate.seedsNeeded || {}).length ?
                     `<strong style="color:#ffeb3b">Seeds:</strong> ${Object.entries(estimate.seedsNeeded).map(([s, q]) => `${q}×${s}`).join(', ')}` : ''}
@@ -255,19 +236,17 @@ const Calculator = {
                     ${Object.keys(estimate.ingredientsNeeded || {}).length ?
                     `<strong style="color:#ff9800">Ingredients:</strong> ${Object.entries(estimate.ingredientsNeeded).map(([i, q]) => `${q}×${i}`).join(', ')}` : ''}
                 </div>
-        
                 <div style="margin-top:12px; text-align:center; font-size:15px; color:#0f8; font-weight:bold;">
-                    Total Harvest Cost: $${exactCost.toFixed(2)}
+                    Total Harvest Cost: $${formatCurrency(exactCost)}
                 </div>
             </div>`;
 
             return html;
         }
 
-        // === WAREHOUSE STOCK MESSAGE (covers both warehouse options) ===
+        // === WAREHOUSE MESSAGE ===
         if ((isCrop && (cropChoice === "warehouse" || cropChoice === "warehouse-raw")) || (!isCrop && userChoice === "warehouse")) {
             if (canUseStock) {
-                // Calculate the unit cost being used
                 let unitCost = 0;
                 let note = "";
 
@@ -281,7 +260,6 @@ const Calculator = {
                         note = "avg pricing";
                     }
                 } else {
-                    // Non-crop (crafted item) from warehouse → uses raw price via cost()
                     unitCost = Calculator.cost(item);
                     if (unitCost > 0) {
                         const rawData = App.state.rawPrice[item];
@@ -294,7 +272,7 @@ const Calculator = {
                 const totalCost = (unitCost * needed).toFixed(2);
                 const unitDisplay = unitCost > 0 ? `$${unitCost.toFixed(2)}/unit` : "free";
 
-                return html += `
+                html += `
                     <div style="margin-left:${(depth + 1) * 24}px; color:#0f8; font-style:italic; padding:8px 12px; background:#001122; border-radius:6px; margin-top:8px; font-size:14px;">
                         <strong>Using ${needed.toFixed(0)} × ${item} from warehouse</strong><br>
                         <span style="color:#0cf;">Cost: ${unitDisplay} → $${totalCost} ${note ? `(${note})` : ""}</span>
@@ -303,26 +281,29 @@ const Calculator = {
             }
         }
 
-
+        // === RAW ITEM / TOOL DISPLAY ===
         if (isRaw) {
             const rawData = App.state.rawPrice[item];
             const marketPrice = typeof rawData === 'object' ? rawData.price : rawData || 0;
             const marketCost = marketPrice * qty;
 
-            const isCraftable = this.isCraftableRaw(item);
-
             let rawHTML = `<div style="margin-left:${(depth + 1) * 24}px; padding:6px 0;">`;
 
-            if (isCraftable) {
-                // Unique key for live toggle
-                const toggleKey = `rawcost→${path.concat(item).join("→")}`;
-                const userChoice = Calculator.liveToggle[toggleKey] || "market"; // default market
+            // Always show the item even for raw/tools
+            rawHTML += `
+                <div style="color:#ff9800; font-weight:bold;">
+                    ${qty.toFixed(2).replace(/\.?0+$/, '')} × ${item} ${qty < 1 ? '(durability / partial use)' : ''}
+                </div>`;
 
-                // Calculate crafted cost using existing cost() function (recursive!)
+            // Optional: market/crafted toggle if craftable
+            const isCraftable = this.isCraftableRaw(item);
+            if (isCraftable) {
+                const toggleKey = `rawcost→${path.concat(item).join("→")}`;
+                const userChoice = Calculator.liveToggle[toggleKey] || "market";
+
                 const craftedUnitCost = this.cost(item);
                 const craftedTotal = craftedUnitCost * qty;
 
-                // Unique radio group name to avoid conflicts
                 const groupName = `rawcost_${item.replace(/\s+/g, '_')}_${depth}_${Date.now()}`;
 
                 rawHTML += `
@@ -335,76 +316,60 @@ const Calculator = {
                                 <input type="radio" name="${groupName}" value="market" 
                                        ${userChoice === 'market' ? 'checked' : ''}
                                        onchange="Calculator.liveToggle['${toggleKey}']='market'; debouncedCalcRun();">
-                                Market Price: $${marketPrice.toFixed(4)} → $${marketCost.toFixed(2)}
+                                Market Price: $${formatCurrency(marketPrice)} → $${formatCurrency(marketCost)}
                             </label>
                             <label style="display:block; margin:4px 0; color:${userChoice === 'crafted' ? '#0f8' : '#aaa'};">
                                 <input type="radio" name="${groupName}" value="crafted" 
                                        ${userChoice === 'crafted' ? 'checked' : ''}
                                        onchange="Calculator.liveToggle['${toggleKey}']='crafted'; debouncedCalcRun();">
-                                Crafted Cost: $${craftedUnitCost.toFixed(4)} → $${craftedTotal.toFixed(2)}
+                                Crafted Cost: $${formatCurrency(craftedUnitCost)} → $${formatCurrency(craftedTotal)}
                             </label>
                         </div>
                     </div>`;
-            } else {
-                //rawHTML += `<span style="color:#0f8; font-weight:bold;">$${marketCost.toFixed(2)}</span>`;
             }
 
             rawHTML += `</div>`;
-
-            // Force display even for fractional qty
-            let displayQty = Number(qty).toFixed(2).replace(/\.?0+$/, '') || '0';
-
-            rawHTML += `
-            <div style="margin-left:${(depth + 1) * 24}px; padding:6px 0;">
-                <div style="color:#ff9800; font-weight:bold;">
-                    ${displayQty} × ${item} ${qty < 1 ? '(durability / partial use)' : ''}
-                </div>
-                <!-- keep existing market/crafted toggle if desired -->
-            </div>`;
-
-            return html + rawHTML;
+            html += rawHTML;
         }
 
-        // Normal crafting tree — only runs when crafting (not using warehouse)
-        const batches = Math.ceil(qty / (r?.y || 1));
-        html += `<div class="tree">`;
+        // ─── Children (only for crafted items) ───
+        if (!isRaw) {
+            const batches = Math.ceil(qty / (r?.y || 1));
+            html += `<div class="tree">`;
 
-        for (const [ing, spec] of Object.entries(r.i || {})) {
-            let childQty = 0;
-            let isPercentage = false;
+            for (const [ing, spec] of Object.entries(r.i || {})) {
+                let childQty = 0;
+                let isPercentage = false;
 
-            if (typeof spec === 'number') {
-                // Standard full-consume ingredient
-                childQty = spec * batches;
-            } else if (spec && typeof spec === 'object' && spec.percent !== undefined) {
-                // Percentage durability usage → show fractional "quantity"
-                const fractionPerCraft = Number(spec.percent) / 100;
-                childQty = fractionPerCraft * batches;
-                isPercentage = true;
-            } else {
-                console.warn(`Invalid spec for ${ing} in recipe ${item}:`, spec);
-                continue;
+                if (typeof spec === 'number') {
+                    childQty = spec * batches;
+                } else if (spec && spec.percent !== undefined) {
+                    const fractionPerCraft = Number(spec.percent) / 100;
+                    childQty = fractionPerCraft * batches;
+                    isPercentage = true;
+                } else {
+                    console.warn(`Invalid spec for ${ing} in recipe ${item}:`, spec);
+                    continue;
+                }
+
+                if (childQty <= 0) continue;
+
+                let childHtml = this.buildTree(ing, childQty, depth + 1, path.concat(item));
+
+                if (isPercentage && childHtml) {
+                    childHtml = childHtml.replace(
+                        /<strong style="color:var\(--accent\);">/,
+                        `<strong style="color:var(--accent);"><span style="color:#ff9800; font-size:0.9em;">(durability) </span>`
+                    );
+                }
+
+                html += childHtml;
             }
 
-            // Skip if effectively zero usage
-            if (childQty <= 0) continue;
-
-            // Call recursively with the (possibly fractional) quantity
-            let childHtml = this.buildTree(ing, childQty, depth + 1, path.concat(item));
-
-            // Optional: add visual indicator for percentage items
-            if (isPercentage && childHtml) {
-                // Insert hint right before the item name
-                childHtml = childHtml.replace(
-                    /<strong style="color:var\(--accent\);">/,
-                    `<strong style="color:var(--accent);"><span style="color:#ff9800; font-size:0.9em;">(durability) </span>`
-                );
-            }
-
-            html += childHtml;
+            html += `</div>`;
         }
 
-        html += `</div>`;
+        return html;
     },
 
     run() {
@@ -599,9 +564,9 @@ const Calculator = {
                 <td>${o.item}</td>
                 <td>${o.tier === "bulk" ? "Bulk" : "Shop"}</td>
                 <td>${invoiceWeight}kg</td>
-                <td class="profit-only">$${unitCost.toFixed(4)}</td>
-                <td>$${sellPrice.toFixed(2)}</td>
-                <td>$${(sellPrice * o.qty).toFixed(2)}</td>
+                <td class="profit-only">${formatCurrency(unitCost)}</td>
+                <td>${formatCurrency(sellPrice)}</td>
+                <td>${formatCurrency(sellPrice * o.qty)}</td>
             </tr>`;
         });
 
@@ -657,29 +622,29 @@ const Calculator = {
                 <!-- CUSTOMER VIEW: Subtotal / Discount / Total Due -->
                 <div id="customerSummary">
                     <div style="font-size:28px; font-weight:bold; color:#0f8; margin-bottom:15px;">
-                        Subtotal: $<span id="orderSubtotal">${grandSell.toFixed(2)}</span>
+                        Subtotal: $<span id="orderSubtotal">${formatCurrency(grandSell)}</span>
                     </div>
     
                     ${discountAmount > 0 ? `
                         <div style="color:#f66; font-weight:bold; font-size:20px; margin:15px 0;">
-                            Discount (${discountReason}): -$${discountAmount.toFixed(2)}
+                            Discount (${discountReason}): - ${formatCurrency(discountAmount)}
                         </div>
                     ` : ''}
     
                     <div style="font-size:36px; font-weight:bold; color:#0ff; margin:20px 0;">
-                        TOTAL DUE: $<span id="orderGrandTotal">${finalTotal.toFixed(2)}</span>
+                        TOTAL DUE: $<span id="orderGrandTotal">${formatCurrency(finalTotal)}</span>
                     </div>
                 </div>
     
                 <!-- STAFF-ONLY: Cost to Produce (replaces Subtotal in staff view) -->
                 <div id="staffCostLine" style="display:none; font-size:28px; font-weight:bold; color:#0cf; margin-bottom:15px;">
-                    Cost to Produce: $<span id="orderTotalCost">${grandCost.toFixed(2)}</span>
+                    Cost to Produce: $<span id="orderTotalCost">${formatCurrency(grandCost)}</span>
                 </div>
     
                 <!-- PROFIT LINE - HIDDEN IN CUSTOMER VIEW -->
                 <div id="orderProfitRow" style="margin:30px 0; font-size:20px; display:none;">
                     <span style="color:#0f8; font-weight:bold;">
-                        PROFIT: +$<span id="orderProfitAmount">${profit.toFixed(2)}</span> (${profitPct}%)
+                        PROFIT: +$<span id="orderProfitAmount">${formatCurrency(profit)}</span> (${profitPct}%)
                     </span>
                 </div>
     
@@ -704,32 +669,32 @@ const Calculator = {
                     <div>
                         <div style="color:#aaa; margin-bottom:8px;">Cost to Produce</div>
                         <div style="font-size:28px; font-weight:bold; color:#0cf;">
-                            $<span id="mainTotalCost">${grandCost.toFixed(2)}</span>
+                            $<span id="mainTotalCost">${formatCurrency(grandCost)}</span>
                         </div>
                     </div>
                     <div>
                         <div style="color:#aaa; margin-bottom:8px;">Subtotal</div>
                         <div style="font-size:28px; font-weight:bold; color:#0f8;">
-                            $<span id="mainSubtotal">${grandSell.toFixed(2)}</span>
+                            $<span id="mainSubtotal">${formatCurrency(grandSell)}</span>
                         </div>
                     </div>
                     <div>
                         <div style="color:#aaa; margin-bottom:8px;">TOTAL</div>
                         <div style="font-size:36px; font-weight:bold; color:#0ff;">
-                            $<span id="mainGrandTotal">${finalTotal.toFixed(2)}</span>
+                            $<span id="mainGrandTotal">${formatCurrency(finalTotal)}</span>
                         </div>
                     </div>
                 </div>
 
                 ${safeDiscount > 0 ? `
                     <div style="color:#fa5; font-weight:bold; font-size:22px; margin:15px 0; padding:10px; background:#220011; border-radius:8px; border:1px solid #fa5;">
-                        Discount (${discountReason}): −$${safeDiscount.toFixed(2)}
+                        Discount (${discountReason}): − ${formatCurrency(safeDiscount)}
                     </div>
                 ` : ''}
     
                 <div style="margin:20px 0; font-size:20px;">
                     <span style="color:#0f8; font-weight:bold;">
-                        PROFIT: +$<span id="mainProfitAmount">${profit.toFixed(2)}</span> (${profitPct}%)
+                        PROFIT: +$<span id="mainProfitAmount">${formatCurrency(profit)}</span> (${profitPct}%)
                     </span>
                     <span style="margin-left:60px; color:#0af;">
                         Total Weight: ${finalProductWeight.toFixed(1)}kg
@@ -799,8 +764,8 @@ const Calculator = {
             html += `<tr>
                 <td>${item}</td>
                 <td style="text-align:right;">${qty.toLocaleString()}</td>
-                <td style="text-align:right;">$${unitCost.toFixed(4)}</td>
-                <td style="text-align:right;">$${cost.toFixed(2)}</td>
+                <td style="text-align:right;">$${formatCurrency(unitCost)}</td>
+                <td style="text-align:right;">$${formatCurrency(cost)}</td>
                 <td style="text-align:right; ${boxesPerUnit > 0 ? 'color:#ff9800; font-weight:bold;' : 'color:#666;'}">
                     ${boxesDisplay}
                 </td>
@@ -809,7 +774,7 @@ const Calculator = {
 
         html += `<tr style="font-weight:bold; background:#111; color:#fff;">
             <td colspan="3">Total Raw Materials Cost</td>
-            <td  style="text-align:right;">$${rawTotalCost.toFixed(2)}</td>
+            <td  style="text-align:right;">$${formatCurrency(rawTotalCost)}</td>
             <td style="text-align:right; color:#ff9800;">
                 ${totalBoxes > 0 ? totalBoxes.toLocaleString() : "—"}
             </td>
@@ -864,13 +829,13 @@ const Calculator = {
                     <td>${tool}</td>
                     <td style="text-align:right;">${displayUsage}% total</td>
                     <td style="text-align:right; font-weight:bold;">${displayText}</td>
-                    <td style="text-align:right; color:#ff9800;">$${toolCostContribution.toFixed(2)}</td>
+                    <td style="text-align:right; color:#ff9800;">$${formatCurrency(toolCostContribution)}</td>
                 </tr>`;
             }
 
             html += `<tr style="font-weight:bold; background:#220d00; color:#fff;">
                 <td colspan="3">Total Tools Cost Contribution</td>
-                <td style="text-align:right;">$${toolsTotalCost.toFixed(2)}</td>
+                <td style="text-align:right;">$${formatCurrency(toolsTotalCost)}</td>
             </tr></tbody></table>
     
             <p style="font-size:0.9em; color:#aaa; margin-top:8px;">
@@ -881,7 +846,7 @@ const Calculator = {
         // Grand total line
         const grandTotalCost = rawTotalCost + toolsTotalCost;
         html += `<div style="margin-top:20px; font-size:1.2em; font-weight:bold; text-align:right; color:#0ff;">
-            Grand Total Production Cost: $${grandTotalCost.toFixed(2)}
+            Grand Total Production Cost: $${formatCurrency(grandTotalCost)}
         </div>`;
 
         return html;
