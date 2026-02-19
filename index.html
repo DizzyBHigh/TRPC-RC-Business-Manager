@@ -780,6 +780,287 @@
         </div>
     </div>
 
+    <div id="weedGrow" class="tab-content">
+        <h2>Weed Grow Manager</h2>
+    
+        <button onclick="WeedGrow.addPlant()">+ Start New Plant</button>
+    
+        <table id="weedTable" style="width:100%; margin-top:20px;">
+            <thead>
+                <tr>
+                    <th>Strain / ID</th>
+                    <th>Planted</th>
+                    <th>Age</th>
+                    <th>Stage</th>
+                    <th>Health</th>
+                    <th>Water</th>
+                    <th>Ground</th>
+                    <th>Light</th>
+                    <th>Harvest</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="weedTableBody"></tbody>
+        </table>
+
+        <!-- Modal for adding/editing plant -->
+        <div id="weedModal"
+            style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000;">
+            <div style="background:#111; margin:10% auto; padding:30px; width:600px; max-width:90%; border-radius:12px;">
+                <h3 id="weedModalTitle">New Plant</h3>
+                <input type="text" id="weedStrain" placeholder="Strain / Name" style="width:100%; margin:10px 0;" />
+                <input type="datetime-local" id="weedPlanted" style="width:100%; margin:10px 0;" />
+                <select id="weedType" style="width:100%; margin:10px 0;">
+                    <option value="">Type</option>
+                    <option value="auto">Autoflower</option>
+                    <option value="photo">Photoperiod</option>
+                </select>
+                <textarea id="weedNotes" placeholder="Notes (pot size, medium, etc.)"
+                    style="width:100%; height:80px;"></textarea>
+                <div style="margin-top:20px; text-align:right;">
+                    <button onclick="WeedGrow.cancelModal()">Cancel</button>
+                    <button onclick="WeedGrow.savePlant()" style="background:#0f8; color:black;">Save Plant</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="growGroups" class="tab-content">
+        <h2>Grow Groups</h2>
+    
+        <button onclick="GrowManager.createGroup()">+ New Grow Group</button>
+    
+        <div id="groupList" style="margin-top:20px;"></div>
+    
+        <!-- Pots view for a selected group -->
+        <div id="potsView" style="display:none; margin-top:30px;">
+            <button onclick="GrowManager.backToGroups()" style="margin-bottom:15px;">← Back to Groups</button>
+            <h3 id="potsGroupTitle"></h3>
+            <button onclick="GrowManager.addPot()" style="margin:15px 0;">+ Add New Pot</button>
+            <div id="potsList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
+            </div>
+        </div>
+        
+        <!-- Modal for add/edit pot -->
+        <div id="potModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:#111; padding:30px; width:500px; max-width:90%; border-radius:12px;">
+                <h3 id="potModalTitle">New Pot</h3>
+                <input type="text" id="potLabel" placeholder="Pot Label (e.g. A1, Left Back)"
+                    style="width:100%; margin:10px 0;" />
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin:15px 0;">
+                    <div>
+                        <label>Initial Water %</label>
+                        <input type="number" id="potWater" min="0" max="100" value="40" style="width:100%;" />
+                    </div>
+                    <div>
+                        <label>Initial Ground %</label>
+                        <input type="number" id="potGround" min="0" max="100" value="10" style="width:100%;" />
+                    </div>
+                    <div>
+                        <label>Initial Light %</label>
+                        <input type="number" id="potLight" min="0" max="100" value="60" style="width:100%;" />
+                    </div>
+                </div>
+                <div style="margin-top:20px; text-align:right;">
+                    <button onclick="GrowManager.cancelPotModal()">Cancel</button>
+                    <button onclick="GrowManager.savePot()" style="background:#0f8; color:black; padding:10px 20px;">Save
+                        Pot</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for new/edit group -->
+        <div id="groupModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:#111; padding:30px; width:500px; max-width:90%; border-radius:12px;">
+                <h3 id="groupModalTitle">New Grow Group</h3>
+                <input type="text" id="groupName" placeholder="Group Name (e.g. Blue Dream #1)"
+                    style="width:100%; margin:10px 0;" />
+                <input type="datetime-local" id="groupStartDate" style="width:100%; margin:10px 0;" />
+                <textarea id="groupDesc" placeholder="Description (notes, setup, etc.)"
+                    style="width:100%; height:100px;"></textarea>
+                <div style="margin-top:20px; text-align:right;">
+                    <button onclick="GrowManager.cancelGroupModal()">Cancel</button>
+                    <button onclick="GrowManager.saveGroup()" style="background:#0f8; color:black; padding:10px 20px;">Save
+                        Group</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Update Plant Status Modal -->
+        <div id="updatePlantModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <div
+                style="background:#111; padding:30px; width:720px; max-width:95%; border-radius:12px; max-height:90vh; overflow-y:auto;">
+                <h3 id="updateModalTitle">Update Plant Status</h3>
+                <p id="updatePotInfo" style="color:#0af; margin:10px 0;"></p>
+        
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                    <div>
+                        <label>Recorded Time</label>
+                        <input type="datetime-local" id="updateTime" style="width:100%; padding:8px; margin:5px 0;" />
+                    </div>
+                    <div>
+                        <label>Age (days / hours)</label>
+                        <input type="text" id="updateAge" placeholder="Auto-calculated" readonly
+                            style="width:100%; padding:8px; margin:5px 0; background:#222;" />
+                        <small style="color:#888;">(edit manually if needed)</small>
+                    </div>
+                    <div>
+                        <label>Current Stage</label>
+                        <select id="updateStageName" style="width:100%; padding:8px; margin:5px 0;">
+                            <option value="Seedling">Seedling</option>
+                            <option value="Vegetative">Vegetative</option>
+                            <option value="Flowering">Flowering</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Stage Progress % (0–100)</label>
+                        <input type="number" id="updateStagePercent" min="0" max="100" step="0.1"
+                            style="width:100%; padding:8px; margin:5px 0;" />                </div>
+                    <div>
+                        <label>Health % (0–100)</label>
+                        <input type="number" id="updateHealth" min="0" max="100" step="0.1"
+                            style="width:100%; padding:8px; margin:5px 0;" />
+                    </div>
+                    <div>
+                        <label style="color:#00A8ff;">Water % (0–100)</label>
+                        <input type="number" id="updateWater" min="0" max="100" step="0.1"
+                            style="width:100%; padding:8px; margin:5px 0;  color:#00A8ff;" />
+                    </div>
+                    <div>
+                        <label style="color:#44BD32;">Ground % (0–100)</label>
+                        <input type="number" id="updateGround" min="0" max="100" step="0.1"
+                            style="width:100%; padding:8px; margin:5px 0; color:#44BD32;" />
+                    </div>
+                    <div>
+                        <label style="color:#FBC531;">Light % (0–100)</label>
+                        <input type="number" id="updateLight" min="0" max="100" step="0.1"
+                            style="width:100%; padding:8px; margin:5px 0; color:#FBC531;" />
+                    </div>
+                    <div>
+                        <label style="color:#FF44D4;">Overall % (auto average)</label>
+                        <input type="number" id="updateOverall" min="0" max="100" step="0.1"
+                            style="width:100%; padding:8px; margin:5px 0; color:#FF44D4;" />
+                    </div>
+                </div>
+        
+                <textarea id="updateNotes" placeholder="Notes / observations (e.g. leaf colour, stretch, smell)"
+                    style="width:100%; height:100px; margin:15px 0; padding:8px;"></textarea>
+        
+                <div style="margin-top:20px; text-align:right;">
+                    <button onclick="GrowManager.cancelUpdateModal()" style="padding:10px 20px;">Cancel</button>
+                    <button onclick="GrowManager.saveUpdate()"
+                        style="background:#0f8; color:black; padding:10px 20px; margin-left:10px;">Save Update</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Water Modal -->
+        <div id="waterModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:#111; padding:30px; width:400px; max-width:90%; border-radius:12px;">
+                <h3>Water Plant</h3>
+                <p id="waterPotInfo" style="color:#0af; margin-bottom:15px;"></p>
+                <label>How many bottles? (1 bottle = +25% Water)</label>
+                <input type="number" id="waterBottles" min="1" max="10" value="1" step="1"
+                    style="width:100%; padding:10px; margin:10px 0;" />
+                <div style="margin-top:20px; text-align:right;">
+                    <button onclick="GrowManager.cancelWaterModal()">Cancel</button>
+                    <button onclick="GrowManager.applyWater()"
+                        style="background:#0af; color:white; padding:10px 20px; margin-left:10px;">Apply Water</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Fertiliser Modal -->
+        <div id="fertiliserModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:#111; padding:30px; width:450px; max-width:90%; border-radius:12px;">
+                <h3>Add Fertiliser</h3>
+                <p id="fertPotInfo" style="color:#0af; margin-bottom:15px;"></p>
+                <label>Fertiliser Type</label>
+                <select id="fertType" style="width:100%; padding:10px; margin:10px 0;">
+                    <option value="Basic">Basic (+20% Ground, $20)</option>
+                    <option value="Yield">Yield (+15% Ground + extra time, $100)</option>
+                    <option value="Growth">Growth (speeds growth, reduces quality, $150)</option>
+                    <option value="Black Market">Black Market (+ yield & quality, $500)</option>
+                </select>
+                <label>How many applications?</label>
+                <input type="number" id="fertAmount" min="1" max="5" value="1" step="1"
+                    style="width:100%; padding:10px; margin:10px 0;" />
+                <div style="margin-top:20px; text-align:right;">
+                    <button onclick="GrowManager.cancelFertModal()">Cancel</button>
+                    <button onclick="GrowManager.applyFertiliser()"
+                        style="background:#fa5; color:black; padding:10px 20px; margin-left:10px;">Apply Fertiliser</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- History / Log Viewer Modal -->
+        <div id="historyModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <div
+                style="background:#111; padding:30px; width:90%; max-width:1200px; max-height:90vh; border-radius:12px; overflow:hidden; display:flex; flex-direction:column;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 id="historyModalTitle">Plant History / Updates</h3>
+                    <button onclick="GrowManager.closeHistoryModal()"
+                        style="background:#c00; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">Close</button>
+                </div>
+                <div style="overflow-y:auto; flex:1;">
+                    <table id="historyTable" style="width:100%; border-collapse:collapse;">
+                        <thead style="background:#222; position:sticky; top:0;">
+                            <tr>
+                                <th style="padding:10px; text-align:left;">Time</th>
+                                <th style="padding:10px; text-align:center;">Age</th>
+                                <th style="padding:10px; text-align:center;">Stage</th>
+                                <th style="padding:10px; text-align:center;">Health %</th>
+                                <th style="padding:10px; text-align:center;">Water %</th>
+                                <th style="padding:10px; text-align:center;">Ground %</th>
+                                <th style="padding:10px; text-align:center;">Light %</th>
+                                <th style="padding:10px; text-align:center;">Overall %</th>
+                                <th style="padding:10px; text-align:left;">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Harvest Modal -->
+        <div id="harvestModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:#111; padding:30px; width:500px; max-width:90%; border-radius:12px;">
+                <h3 id="harvestModalTitle">Harvest Plant</h3>
+                <p id="harvestPotInfo" style="color:#0af; margin-bottom:15px;"></p>
+        
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div>
+                        <label>Buds Harvested (grams)</label>
+                        <input type="number" id="harvestBuds" min="0" step="0.1" placeholder="e.g. 120.5"
+                            style="width:100%; padding:8px; margin:5px 0;" />
+                    </div>
+                    <div>
+                        <label>Quality % (0–100)</label>
+                        <input type="number" id="harvestQuality" min="0" max="100" step="0.1" placeholder="e.g. 88.5"
+                            style="width:100%; padding:8px; margin:5px 0;" />
+                    </div>
+                </div>
+        
+                <textarea id="harvestNotes" placeholder="Harvest notes (trim, smell, curing plans, etc.)"
+                    style="width:100%; height:80px; margin:15px 0; padding:8px;"></textarea>
+        
+                <div style="margin-top:20px; text-align:right;">
+                    <button onclick="GrowManager.cancelHarvestModal()">Cancel</button>
+                    <button onclick="GrowManager.saveHarvest()"
+                        style="background:#27ae60; color:white; padding:10px 20px; margin-left:10px;">Confirm Harvest</button>
+                </div>
+            </div>
+        </div>
+        
+    </div>
     <!-- Seeds Tab -->
     <div id="seeds" class="tab-content" style="display:none;">
         <!-- Header with Add Button -->
@@ -1628,6 +1909,7 @@
     <script src="js/priceList.js"></script>
     <script src="js/employees.js"></script>
     <script src="js/rawMaterials.js"></script>
+    <script src="js/weed.js"></script>
     <script src="js/recipes.js"></script>
     <script src="js/categories.js"></script>
     <script src="js/shopsales.js"></script>
