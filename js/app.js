@@ -1002,6 +1002,8 @@ const App = {
             if (typeof applyRecipePermissions === "function") {
                 applyRecipePermissions();
             }
+            //WeedGrow.renderTable();
+            GrowManager.renderGroups();
             Crops.renderSeeds?.();
             Crops.renderHarvests?.();
             // Trigger search inputs to refresh dropdowns
@@ -1736,6 +1738,21 @@ const DropdownMenu = {
                 }
             ]
         },
+
+        "Drug Manufacturing": {  // Or create "Crops": { description: "Manage crops and harvests", tabs: [...] }
+            description: "Drugs here innit",
+            tabs: [
+                // ... existing tabs ...
+                {
+                    id: "growGroups", name: "Weed", desc: "Manage Weed", help: `
+                <p><strong>Weed Section - Seeds</strong></p>
+                
+                `.trim()
+                },
+            
+
+            ]
+        },
         /* "Craftable Products": {
             description: "Create and edit crafting recipes, organize items into categories",
             tabs: [
@@ -2048,6 +2065,11 @@ async function activateTab(tabId) {
 
     if (tabId === "orders") {
         setTimeout(autoRestoreCheckedOutOrder, 100); // tiny delay ensures DOM is ready
+    }
+
+    if (tabId === "growGroups") {
+        //WeedGrow.renderTable();
+        GrowManager.renderGroups();
     }
 
     if (tabId === "seeds") {
