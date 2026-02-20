@@ -1702,7 +1702,7 @@
                 <label><input type="checkbox" id="exp_ledger" checked> Financial Ledger</label>
                 <label><input type="checkbox" id="exp_orders" checked> Completed Customer Orders</label>
                 <label><input type="checkbox" id="exp_minstock" checked> Minimum Stock Alerts</label>
-                <label><input type="checkbox" id="exp_ocr" checked> OCR Auto-Corrections</label>
+                <label><input type="checkbox" id="exp_growGroups" checked>Weed Grow Journal (Groups, Pots, Plants, History, Harvests)</label>
             </div>
             <button class="success" onclick="Sync.exportSelected()" style="padding:14px 40px; font-size:18px;">
                 EXPORT SELECTED → COPY TO CLIPBOARD
@@ -1728,6 +1728,7 @@
                 <label><input type="checkbox" id="imp_orders" checked> Completed Customer Orders</label>
                 <label><input type="checkbox" id="imp_minstock" checked> Minimum Stock Alerts</label>
                 <label><input type="checkbox" id="imp_ocr" checked> OCR Auto-Corrections</label>
+                <label><input type="checkbox" id="imp_growGroups" checked />Weed Grow Journal</label>
             </div>
             <textarea id="importBox" rows="16" placeholder="Paste your backup JSON here..."
                 style="width:100%;margin:10px 0;font-family:monospace;font-size:11px;"></textarea>
@@ -1755,6 +1756,7 @@
                 <label><input type="checkbox" id="clr_orders"> Completed Orders</label>
                 <label><input type="checkbox" id="clr_minstock"> Min Stock Alerts</label>
                 <label><input type="checkbox" id="clr_ocr"> OCR Corrections</label>
+                
             </div>
             <button class="danger" onclick="Sync.clearSelected()"
                 style="padding:16px 50px; font-size:19px; font-weight:bold; margin-top:10px;">

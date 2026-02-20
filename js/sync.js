@@ -15,7 +15,8 @@ const Sync = {
         ledger: "ledger",
         orders: "completedOrders",
         minstock: "minStock",
-        ocr: "ocrCorrections"
+        ocr: "ocrCorrections",
+        growGroups: "growGroups",
     },
 
     friendlyNames: {
@@ -30,7 +31,8 @@ const Sync = {
         ledger: "Financial Ledger",
         completedOrders: "Completed Customer Orders",
         minStock: "Minimum Stock Alerts",
-        ocrCorrections: "OCR Auto-Corrections"
+        ocrCorrections: "OCR Auto-Corrections",
+        growGroups: "Weed Grow Journal (Groups, Pots, Plants, History, Harvests)",
     },
 
     // EXPORT — WORKS PERFECTLY
