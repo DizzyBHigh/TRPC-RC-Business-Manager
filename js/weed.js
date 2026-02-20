@@ -235,12 +235,28 @@ const GrowManager = {
 			// Age
 			let ageDisplay = "—";
 			if (hasPlant) {
-				const planted = new Date(pot.plant.plantedAt);
-				const now = new Date();
-				const ageMs = now - planted;
-				const totalHours = Math.floor(ageMs / (1000 * 60 * 60));
-				const remainingMinutes = Math.floor((ageMs % (1000 * 60 * 60)) / (1000 * 60));
-				ageDisplay = `${totalHours}h ${remainingMinutes}m`;
+				if (pot.harvested) {
+					// Use the age from the harvest history entry (fixed at harvest time)
+					const harvestEntry = pot.history?.findLast(e => e.stageName === "Harvested");
+					ageDisplay = harvestEntry?.ageDisplay || "—";
+					// Or fallback to pot.harvest.date if no history entry has age
+					if (ageDisplay === "—") {
+						const harvestTime = new Date(pot.harvest?.date);
+						const planted = new Date(pot.plant.plantedAt);
+						const ageMs = harvestTime - planted;
+						const totalHours = Math.floor(ageMs / (1000 * 60 * 60));
+						const remainingMinutes = Math.floor((ageMs % (1000 * 60 * 60)) / (1000 * 60));
+						ageDisplay = `${totalHours}h ${remainingMinutes}m`;
+					}
+				} else {
+					// Normal active plant: current age
+					const planted = new Date(pot.plant.plantedAt);
+					const now = new Date();
+					const ageMs = now - planted;
+					const totalHours = Math.floor(ageMs / (1000 * 60 * 60));
+					const remainingMinutes = Math.floor((ageMs % (1000 * 60 * 60)) / (1000 * 60));
+					ageDisplay = `${totalHours}h ${remainingMinutes}m`;
+				}
 			}
 
 			const div = document.createElement("div");
@@ -259,12 +275,12 @@ const GrowManager = {
 			  <div>
 				<strong style="font-size:1.3em;">${pot.label}</strong>
 				<br>
-				<small style="color:#aaa;">
-  					${hasPlant
-						? `${pot.plant.strain} <span style="color:${pot.plant.sex === 'Female' ? '#ff69b4' : '#00bfff'};">${pot.plant.sex === 'Female' ? '♀' : '♂'}</span> • ${ageDisplay}`
+				<style="color:#aaa;">
+					${hasPlant
+						? `${pot.plant.strain} ${pot.plant.sex === 'Female' ? '♀' : '♂'} • ${ageDisplay}${pot.harvested ? ' (at harvest)' : ''}`
 						: 'Empty pot'
 					}
-					</small>
+				
 			  </div>
 			</div>
 	  
@@ -326,7 +342,7 @@ const GrowManager = {
 				<button onclick="GrowManager.harvestPlant('${group.id}', '${pot.id}')" style="background:#FB8607; color:white; flex:1;">Harvest</button>
 				<button onclick="GrowManager.viewHistory('${group.id}', '${pot.id}')" style="background:#6c5ce7; color:white; flex:1;">History</button>`
 				: (hasPlant && pot.harvested
-					? `<span style="color:#27ae60; font-weight:bold;">Harvested (${pot.harvest.buds}g @ ${pot.harvest.quality}%)</span>
+					? `<span style="color:#27ae60; font-weight:bold;">Harvested (${pot.harvest.buds || 0}g @ ${pot.harvest.quality || 0}%) • Age at harvest: ${ageDisplay}</span>
 					<button onclick="GrowManager.viewHistory('${group.id}', '${pot.id}')" style="background:#6c5ce7; color:white;">History</button>`
 					: `<button onclick="GrowManager.plantSeed('${group.id}', '${pot.id}')">Plant Seed</button>`
 			   )}
@@ -469,7 +485,7 @@ const GrowManager = {
 
 		document.getElementById("updateModalTitle").textContent = `Update: ${pot.label} - ${pot.plant.strain}`;
 		document.getElementById("updatePotInfo").textContent = `Planted: ${planted.toLocaleString()} | Current Age: ${ageDisplay}`;
-		document.getElementById("updateTime").value = now.toISOString().slice(0, 16);
+		document.getElementById("updateTimeContainer").style.display = 'block'; // visible for new updates
 		document.getElementById("updateAge").value = ageDisplay;
 		document.getElementById("updateStageName").value = latest.stageName || "Seedling";
 		document.getElementById("updateStagePercent").value = latest.stagePercent || 0;
@@ -480,6 +496,7 @@ const GrowManager = {
 		document.getElementById("updateOverall").value = Math.round(avgOverall);
 
 		document.getElementById("updateNotes").value = "";
+		this.editingHistoryIndex = undefined; // new update
 
 		document.getElementById("updatePlantModal").style.display = "flex";
 	},
@@ -503,11 +520,10 @@ const GrowManager = {
 
 		const update = {
 			// When editing, keep ORIGINAL recordedAt — do NOT use the time field
+			// recordedAt is NEVER overwritten when editing
 			recordedAt: this.editingHistoryIndex !== undefined
-				? pot.history[this.editingHistoryIndex].recordedAt
-				: (document.getElementById("updateTime").value
-					? new Date(document.getElementById("updateTime").value).toISOString()
-					: now.toISOString()),
+				? pot.history[this.editingHistoryIndex].recordedAt  // keep original
+				: now.toISOString(),                                // only new updates get current time
 					
 			ageDisplay,  // ← NEW: save the formatted age string
 			stageName: document.getElementById("updateStageName").value,
@@ -726,7 +742,10 @@ const GrowManager = {
 		// Sort history by time (earliest first, oldest at top)
 		const sortedHistory = [...pot.history].sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt));
 
-		sortedHistory.forEach((entry, index) => {
+		sortedHistory.forEach((entry, displayIndex) => {
+			// Find the ORIGINAL index in pot.history
+			const originalIndex = pot.history.findIndex(h => h.recordedAt === entry.recordedAt);
+
 			const time = new Date(entry.recordedAt).toLocaleString([], {
 				year: 'numeric', month: 'short', day: 'numeric',
 				hour: '2-digit', minute: '2-digit'
@@ -734,34 +753,40 @@ const GrowManager = {
 
 			const row = document.createElement("tr");
 			row.innerHTML = `
-			<td style="padding:10px; border-bottom:1px solid #333;">${time}</td>
-			<td style="padding:10px; text-align:center; border-bottom:1px solid #333;">${entry.ageDisplay || '—'}</td>
-			<td style="padding:10px; text-align:center; border-bottom:1px solid #333;">${entry.stageName || '—'} ${entry.stagePercent}%</td>
-			<td style="padding:10px; text-align:center; border-bottom:1px solid #333;">${entry.healthPercent || '—'}%</td>
-			<td style="padding:10px; text-align:center; border-bottom:1px solid #3498DB;">${createPercentCircle(entry.waterPercent || 0, '#3498DB')} ${entry.waterPercent || '—'}%</td>
-			<td style="padding:10px; text-align:center; border-bottom:1px solid #44BD32;">${createPercentCircle(entry.groundPercent || 0, '#44BD32')} ${entry.groundPercent || '—'}%</td>
-			<td style="padding:10px; text-align:center; border-bottom:1px solid #F1C40F;">${createPercentCircle(entry.lightPercent || 0, '#f1c40f')} ${entry.lightPercent || '—'}%</td>
-			<td style="padding:10px; text-align:center; border-bottom:1px solid #FF44D4;">${createPercentCircle(entry.overallPercent || 0, '#FF44D4')} ${entry.overallPercent || '—'}%</td>
-			<td style="padding:10px; border-bottom:1px solid #333;">${entry.notes || '—'}</td>
-			<td style="padding:10px; text-align:center; border-bottom:1px solid #333;">
+			  <td style="padding:10px; border-bottom:1px solid #333;">${time}</td>
+			  <td style="padding:10px; text-align:center; border-bottom:1px solid #333;">${entry.ageDisplay || '—'}</td>
+			  <td style="padding:10px; text-align:center; border-bottom:1px solid #333;">${entry.stageName || '—'} ${entry.stagePercent}%</td>
+			  <td style="padding:10px; text-align:center; border-bottom:1px solid #333;">${entry.healthPercent || '—'}%</td>
+			  <td style="padding:10px; text-align:center; border-bottom:1px solid #3498DB;">${createPercentCircle(entry.waterPercent || 0, '#3498DB')} ${entry.waterPercent || '—'}%</td>
+			  <td style="padding:10px; text-align:center; border-bottom:1px solid #44BD32;">${createPercentCircle(entry.groundPercent || 0, '#44BD32')} ${entry.groundPercent || '—'}%</td>
+			  <td style="padding:10px; text-align:center; border-bottom:1px solid #F1C40F;">${createPercentCircle(entry.lightPercent || 0, '#f1c40f')} ${entry.lightPercent || '—'}%</td>
+			  <td style="padding:10px; text-align:center; border-bottom:1px solid #FF44D4;">${createPercentCircle(entry.overallPercent || 0, '#FF44D4')} ${entry.overallPercent || '—'}%</td>
+			  <td style="padding:10px; border-bottom:1px solid #333;">${entry.notes || '—'}</td>
+			  <td style="padding:10px; text-align:center; border-bottom:1px solid #333;">
 				${entry.harvestBuds !== undefined
 					? `${entry.harvestBuds}g @ ${entry.harvestQuality}%`
 					: entry.stageName || '—'
 				}
+			  </td>
+			  <td style="padding:10px; text-align:center; border-bottom:1px solid #333; white-space:nowrap;">
+				<button class="edit-history-btn" data-original-index="${originalIndex}">Edit</button>
+				<button class="delete-history-btn" data-original-index="${originalIndex}">Delete</button>
 			</td>
-			<td style="padding:10px; text-align:center; border-bottom:1px solid #333; white-space:nowrap;">
-				<button onclick="GrowManager.editHistoryEntry('${groupId}', '${potId}', ${index})" 
-						style="background:#3498db; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.9em;">
-				Edit
-				</button>
-				<button onclick="GrowManager.deleteHistoryEntry('${groupId}', '${potId}', ${index})" 
-						style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.9em; margin-left:4px;">
-				Delete
-				</button>
-			</td>
-		  `;
+			`;
+
+			// Attach listeners using data attribute
+			row.querySelector('.edit-history-btn').addEventListener('click', () => {
+				const origIndex = parseInt(row.querySelector('.edit-history-btn').dataset.originalIndex);
+				GrowManager.editHistoryEntry(groupId, potId, origIndex);
+			});
+
+			row.querySelector('.delete-history-btn').addEventListener('click', () => {
+				const origIndex = parseInt(row.querySelector('.delete-history-btn').dataset.originalIndex);
+				GrowManager.deleteHistoryEntry(groupId, potId, origIndex);
+			});
+
 			tbody.appendChild(row);
-		});
+		  });
 
 		document.getElementById("historyModal").style.display = "flex";
 	},
@@ -779,12 +804,12 @@ const GrowManager = {
 
 		// Re-use the update modal (or create a separate one if you prefer)
 		document.getElementById("updateModalTitle").textContent = `Edit History Entry #${index + 1}`;
-		
-		// Show original timestamp but make it READ-ONLY
-		document.getElementById("updateTime").value = new Date(entry.recordedAt).toISOString().slice(0, 16);
-		document.getElementById("updateTime").readOnly = true;  // ← lock it
-		document.getElementById("updateTime").style.background = "#222"; // visual cue it's locked
-		document.getElementById("updateTime").style.color = "#888";
+		document.getElementById("updateTimeContainer").style.display = 'block'; // still show it, just locked
+		// Show original time READ-ONLY as display (not editable)
+		document.getElementById("updateTimeDisplay").textContent = new Date(entry.recordedAt).toLocaleString([], {
+			year: 'numeric', month: 'short', day: 'numeric',
+			hour: '2-digit', minute: '2-digit'
+		});
 
 		document.getElementById("updateAge").value = entry.ageDisplay || '';
 		document.getElementById("updateStageName").value = entry.stageName || 'Seedling';

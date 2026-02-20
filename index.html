@@ -928,10 +928,12 @@
                 <p id="updatePotInfo" style="color:#0af; margin:10px 0;"></p>
         
                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
-                    <div>
-                        <label>Recorded Time</label>
-                        <input type="datetime-local" id="updateTime" style="width:100%; padding:8px; margin:5px 0;" />
-                    </div>
+                    <div id="updateTimeContainer" style="margin-bottom:15px;">
+                        <label>Recorded Time (fixed)</label>
+                        <div id="updateTimeDisplay"
+                            style="padding:8px; background:#222; border:1px solid #444; border-radius:4px; color:#aaa;"></div>
+                        <!-- No <input> here anymore – we don't let user change it -->                
+                        </div>
                     <div>
                         <label>Age (days / hours)</label>
                         <input type="text" id="updateAge" placeholder="Auto-calculated" readonly
