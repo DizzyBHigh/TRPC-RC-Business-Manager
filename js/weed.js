@@ -802,29 +802,61 @@ const GrowManager = {
 
 		const entry = pot.history[index];
 
-		// Re-use the update modal (or create a separate one if you prefer)
-		document.getElementById("updateModalTitle").textContent = `Edit History Entry #${index + 1}`;
-		document.getElementById("updateTimeContainer").style.display = 'block'; // still show it, just locked
-		// Show original time READ-ONLY as display (not editable)
-		document.getElementById("updateTimeDisplay").textContent = new Date(entry.recordedAt).toLocaleString([], {
-			year: 'numeric', month: 'short', day: 'numeric',
-			hour: '2-digit', minute: '2-digit'
-		});
+		// Check if this is a harvest entry
+		if (entry.harvestBuds !== undefined || entry.harvestSeedsCount !== undefined) {
+			// It's a harvest — use harvest modal
+			document.getElementById("harvestModalTitle").textContent = `Edit Harvest Entry #${index + 1}`;
 
-		document.getElementById("updateAge").value = entry.ageDisplay || '';
-		document.getElementById("updateStageName").value = entry.stageName || 'Seedling';
-		document.getElementById("updateStagePercent").value = entry.stagePercent || 0;
-		document.getElementById("updateHealth").value = entry.healthPercent || 0;
-		document.getElementById("updateWater").value = entry.waterPercent || 0;
-		document.getElementById("updateGround").value = entry.groundPercent || 0;
-		document.getElementById("updateLight").value = entry.lightPercent || 0;
-		document.getElementById("updateOverall").value = entry.overallPercent || 0;
-		document.getElementById("updateNotes").value = entry.notes || '';
+			const harvestTime = new Date(entry.recordedAt).toLocaleString([], {
+				year: 'numeric', month: 'short', day: 'numeric',
+				hour: '2-digit', minute: '2-digit'
+			});
+			document.getElementById("harvestPotInfo").textContent = `Original Time: ${harvestTime} (fixed)`;
 
-		// Remember we're editing an existing entry
-		this.editingHistoryIndex = index;
+			// Show correct section based on type (from entry)
+			if (entry.harvestType === "Female" || entry.harvestBuds !== undefined) {
+				document.getElementById("femaleHarvest").style.display = "block";
+				document.getElementById("maleHarvest").style.display = "none";
+				document.getElementById("harvestBuds").value = entry.harvestBuds || "";
+				document.getElementById("harvestQuality").value = entry.harvestQuality || "";
+			} else {
+				document.getElementById("femaleHarvest").style.display = "none";
+				document.getElementById("maleHarvest").style.display = "block";
+				document.getElementById("harvestSeedStrain").value = entry.harvestSeedsStrain || pot.plant?.strain || "";
+				document.getElementById("harvestSeedsCount").value = entry.harvestSeedsCount || "";
+			}
 
-		document.getElementById("updatePlantModal").style.display = "flex";
+			document.getElementById("harvestNotes").value = entry.notes || "";
+
+			document.getElementById("harvestModal").style.display = "flex";
+		} else {
+
+			// Re-use the update modal (or create a separate one if you prefer)
+			document.getElementById("updateModalTitle").textContent = `Edit History Entry #${index + 1}`;
+			document.getElementById("updateTimeContainer").style.display = 'block'; // still show it, just locked
+			// Show original time READ-ONLY as display (not editable)
+			document.getElementById("updateTimeDisplay").textContent = new Date(entry.recordedAt).toLocaleString([], {
+				year: 'numeric', month: 'short', day: 'numeric',
+				hour: '2-digit', minute: '2-digit'
+			});
+
+			document.getElementById("updateAge").value = entry.ageDisplay || '';
+			document.getElementById("updateStageName").value = entry.stageName || 'Seedling';
+			document.getElementById("updateStagePercent").value = entry.stagePercent || 0;
+			document.getElementById("updateHealth").value = entry.healthPercent || 0;
+			document.getElementById("updateWater").value = entry.waterPercent || 0;
+			document.getElementById("updateGround").value = entry.groundPercent || 0;
+			document.getElementById("updateLight").value = entry.lightPercent || 0;
+			document.getElementById("updateOverall").value = entry.overallPercent || 0;
+			document.getElementById("updateNotes").value = entry.notes || '';
+
+			// Remember we're editing an existing entry
+			this.editingHistoryIndex = index;
+
+
+
+			document.getElementById("updatePlantModal").style.display = "flex";
+		}
 	},
 
 	deleteHistoryEntry(groupId, potId, index) {
@@ -895,7 +927,7 @@ const GrowManager = {
 	saveHarvest() {
 		const group = App.state.growGroups.find(g => g.id === this.currentGroupId);
 		const pot = group?.pots.find(p => p.id === this.currentPotId);
-		if (!pot || !pot.plant) return;
+		if (!pot) return;
 
 		const now = new Date();
 		const planted = new Date(pot.plant.plantedAt);
@@ -904,28 +936,19 @@ const GrowManager = {
 		const remainingMinutes = Math.floor((ageMs % (1000 * 60 * 60)) / (1000 * 60));
 		const ageDisplay = `${totalHours}h ${remainingMinutes}m`;
 
-		const latest = pot.history?.length ? pot.history[pot.history.length - 1] : {
-			stageName: pot.plant.currentStage || "Flowering",
-			stagePercent: pot.plant.stagePercent || 100,
-			healthPercent: pot.plant.healthPercent || 100,
-			waterPercent: pot.currentWater || 0,
-			groundPercent: pot.currentGround || 0,
-			lightPercent: pot.currentLight || 0,
-			overallPercent: 0
-		};
-
 		let harvestUpdate = {
-			recordedAt: now.toISOString(),
 			ageDisplay,
 			stageName: "Harvested",
 			stagePercent: 100,
-			healthPercent: latest.healthPercent,
-			waterPercent: pot.currentWater,
-			groundPercent: pot.currentGround,
-			lightPercent: pot.currentLight,
-			overallPercent: latest.overallPercent,
 			notes: document.getElementById("harvestNotes").value.trim() || "Harvest completed"
 		};
+
+		// Preserve original recordedAt if editing
+		if (this.editingHistoryIndex !== undefined && this.editingHistoryIndex >= 0) {
+			harvestUpdate.recordedAt = pot.history[this.editingHistoryIndex].recordedAt;
+		} else {
+			harvestUpdate.recordedAt = now.toISOString();
+		}
 
 		if (pot.plant.sex === "Female") {
 			const buds = parseFloat(document.getElementById("harvestBuds").value) || 0;
@@ -935,7 +958,7 @@ const GrowManager = {
 			harvestUpdate.harvestType = "Female";
 			harvestUpdate.harvestBuds = buds;
 			harvestUpdate.harvestQuality = quality;
-			harvestUpdate.harvestStrain = pot.plant.strain; // same as planted
+			harvestUpdate.harvestStrain = pot.plant.strain;
 		} else {
 			const seedStrain = document.getElementById("harvestSeedStrain").value.trim() || pot.plant.strain;
 			const seedCount = parseInt(document.getElementById("harvestSeedsCount").value) || 0;
@@ -946,11 +969,28 @@ const GrowManager = {
 			harvestUpdate.harvestSeedsCount = seedCount;
 		}
 
-		pot.history.push(harvestUpdate);
+		// Fill in missing status fields from latest (for continuity)
+		const latest = pot.history?.length ? pot.history[pot.history.length - 1] : {};
+		harvestUpdate.healthPercent = latest.healthPercent || 100;
+		harvestUpdate.waterPercent = pot.currentWater || 0;
+		harvestUpdate.groundPercent = pot.currentGround || 0;
+		harvestUpdate.lightPercent = pot.currentLight || 0;
+		harvestUpdate.overallPercent = latest.overallPercent || 0;
 
+		if (this.editingHistoryIndex !== undefined && this.editingHistoryIndex >= 0) {
+			// Editing existing harvest entry
+			pot.history[this.editingHistoryIndex] = harvestUpdate;
+			this.editingHistoryIndex = undefined;
+		} else {
+			// New harvest
+			if (!pot.history) pot.history = [];
+			pot.history.push(harvestUpdate);
+		}
+
+		// Update harvested status
 		pot.harvested = true;
 		pot.harvest = {
-			date: now.toISOString(),
+			date: harvestUpdate.recordedAt,
 			type: pot.plant.sex,
 			...(pot.plant.sex === "Female" ? {
 				buds: harvestUpdate.harvestBuds,
@@ -966,7 +1006,13 @@ const GrowManager = {
 		App.save("growGroups");
 		this.cancelHarvestModal();
 		this.renderPots();
-		alert(`Harvested ${pot.plant.sex === "Female" ? `${harvestUpdate.harvestBuds}g @ ${harvestUpdate.harvestQuality}%` : `${harvestUpdate.harvestSeedsCount} seeds (${harvestUpdate.harvestSeedsStrain})`}! Logged to history.`);
+
+		// Refresh history if open
+		if (document.getElementById("historyModal").style.display === "flex") {
+			this.viewHistory(this.currentGroupId, this.currentPotId);
+		}
+
+		alert(`Harvest ${this.editingHistoryIndex !== undefined ? 'updated' : 'completed'}!`);
 	  },
 };
 function createPercentCircle(percent, color) {
