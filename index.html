@@ -887,10 +887,41 @@
                 </div>
             </div>
         </div>
-
+        <!-- History / Log Viewer Modal -->
+        <div id="historyModal"
+            style="display:none; z-index:1000; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            <div
+                style="background:#111; padding:30px; width:90%; max-width:1200px; max-height:90vh; border-radius:12px; overflow:hidden; display:flex; flex-direction:column;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 id="historyModalTitle">Plant History / Updates</h3>
+                    <button onclick="GrowManager.closeHistoryModal()"
+                        style="background:#c00; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">Close</button>
+                </div>
+                <div style="overflow-y:auto; flex:1;">
+                    <table id="historyTable" style="width:100%; border-collapse:collapse;">
+                        <thead style="background:#222; position:sticky; top:0;">
+                            <tr>
+                                <th style="padding:10px; text-align:left;">Time</th>
+                                <th style="padding:10px; text-align:center;">Age</th>
+                                <th style="padding:10px; text-align:center;">Stage</th>
+                                <th style="padding:10px; text-align:center;">Health %</th>
+                                <th style="padding:10px; text-align:center;">Water %</th>
+                                <th style="padding:10px; text-align:center;">Ground %</th>
+                                <th style="padding:10px; text-align:center;">Light %</th>
+                                <th style="padding:10px; text-align:center;">Overall %</th>
+                                <th style="padding:10px; text-align:left;">Notes</th>
+                                <th style="padding:10px; text-align:left;">Result</th>
+                                <th style="padding:10px; text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
         <!-- Update Plant Status Modal -->
         <div id="updatePlantModal"
-            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+            style="display:none; z-index:1010; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
             <div
                 style="background:#111; padding:30px; width:720px; max-width:95%; border-radius:12px; max-height:90vh; overflow-y:auto;">
                 <h3 id="updateModalTitle">Update Plant Status</h3>
@@ -998,64 +1029,87 @@
             </div>
         </div>
 
-        <!-- History / Log Viewer Modal -->
-        <div id="historyModal"
-            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
-            <div
-                style="background:#111; padding:30px; width:90%; max-width:1200px; max-height:90vh; border-radius:12px; overflow:hidden; display:flex; flex-direction:column;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 id="historyModalTitle">Plant History / Updates</h3>
-                    <button onclick="GrowManager.closeHistoryModal()"
-                        style="background:#c00; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">Close</button>
-                </div>
-                <div style="overflow-y:auto; flex:1;">
-                    <table id="historyTable" style="width:100%; border-collapse:collapse;">
-                        <thead style="background:#222; position:sticky; top:0;">
-                            <tr>
-                                <th style="padding:10px; text-align:left;">Time</th>
-                                <th style="padding:10px; text-align:center;">Age</th>
-                                <th style="padding:10px; text-align:center;">Stage</th>
-                                <th style="padding:10px; text-align:center;">Health %</th>
-                                <th style="padding:10px; text-align:center;">Water %</th>
-                                <th style="padding:10px; text-align:center;">Ground %</th>
-                                <th style="padding:10px; text-align:center;">Light %</th>
-                                <th style="padding:10px; text-align:center;">Overall %</th>
-                                <th style="padding:10px; text-align:left;">Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        
 
         <!-- Harvest Modal -->
         <div id="harvestModal"
             style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
-            <div style="background:#111; padding:30px; width:500px; max-width:90%; border-radius:12px;">
+            <div style="background:#111; padding:30px; width:550px; max-width:95%; border-radius:12px;">
                 <h3 id="harvestModalTitle">Harvest Plant</h3>
                 <p id="harvestPotInfo" style="color:#0af; margin-bottom:15px;"></p>
-        
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-                    <div>
-                        <label>Buds Harvested (grams)</label>
-                        <input type="number" id="harvestBuds" min="0" step="0.1" placeholder="e.g. 120.5"
-                            style="width:100%; padding:8px; margin:5px 0;" />
-                    </div>
-                    <div>
-                        <label>Quality % (0–100)</label>
-                        <input type="number" id="harvestQuality" min="0" max="100" step="0.1" placeholder="e.g. 88.5"
-                            style="width:100%; padding:8px; margin:5px 0;" />
+            
+                <!-- Female section (buds + quality) -->
+                <div id="femaleHarvest" style="display:none;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                        <div>
+                            <label>Buds Harvested (grams)</label>
+                            <input type="number" id="harvestBuds" min="0" step="0.1" placeholder="e.g. 120.5"
+                                style="width:100%; padding:8px; margin:5px 0;" />
+                        </div>
+                        <div>
+                            <label>Quality % (0–100)</label>
+                            <input type="number" id="harvestQuality" min="0" max="100" step="0.1" placeholder="e.g. 88.5"
+                                style="width:100%; padding:8px; margin:5px 0;" />
+                        </div>
                     </div>
                 </div>
-        
-                <textarea id="harvestNotes" placeholder="Harvest notes (trim, smell, curing plans, etc.)"
+            
+                <!-- Male section (seeds) -->
+                <div id="maleHarvest" style="display:none;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                        <div>
+                            <label>Strain Name (for seeds)</label>
+                            <input type="text" id="harvestSeedStrain" placeholder="e.g. Cherry Pie (Silver)"
+                                style="width:100%; padding:8px; margin:5px 0;" />
+                        </div>
+                        <div>
+                            <label>Seeds Produced (count)</label>
+                            <input type="number" id="harvestSeedsCount" min="0" step="1" placeholder="e.g. 150"
+                                style="width:100%; padding:8px; margin:5px 0;" />
+                        </div>
+                    </div>
+                </div>
+            
+                <textarea id="harvestNotes" placeholder="Harvest notes..."
                     style="width:100%; height:80px; margin:15px 0; padding:8px;"></textarea>
-        
+            
                 <div style="margin-top:20px; text-align:right;">
                     <button onclick="GrowManager.cancelHarvestModal()">Cancel</button>
                     <button onclick="GrowManager.saveHarvest()"
                         style="background:#27ae60; color:white; padding:10px 20px; margin-left:10px;">Confirm Harvest</button>
+                </div>      </div>
+        </div>
+
+        <!-- Plant Seed Modal -->
+        <div id="plantSeedModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1010; align-items:center; justify-content:center;">
+            <div style="background:#111; padding:30px; width:450px; max-width:90%; border-radius:12px;">
+                <h3>Plant Seed</h3>
+                <p id="plantPotInfo" style="color:#0af; margin-bottom:15px;"></p>
+        
+                <label>Strain Name</label>
+                <input type="text" id="plantStrain" placeholder="e.g. Lemon Maze"
+                    style="width:100%; padding:8px; margin:5px 0;" />
+        
+                <div style="margin:15px 0;">
+                    <label>Sex:</label><br>
+                    <label style="display:inline-flex; align-items:center; margin-right:20px; cursor:pointer;">
+                        <input type="radio" name="plantSex" value="Female" checked style="margin-right:8px;" />
+                        Female (produces buds)
+                    </label>
+                    <label style="display:inline-flex; align-items:center; cursor:pointer;">
+                        <input type="radio" name="plantSex" value="Male" style="margin-right:8px;" />
+                        Male (produces seeds/pollen)
+                    </label>
+                </div>
+        
+                <textarea id="plantNotes" placeholder="Planting notes (e.g. medium, pot size)"
+                    style="width:100%; height:80px; margin:10px 0; padding:8px;"></textarea>
+        
+                <div style="margin-top:20px; text-align:right;">
+                    <button onclick="GrowManager.cancelPlantModal()">Cancel</button>
+                    <button onclick="GrowManager.savePlantSeed()"
+                        style="background:#27ae60; color:white; padding:10px 20px; margin-left:10px;">Plant Seed</button>
                 </div>
             </div>
         </div>
