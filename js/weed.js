@@ -900,84 +900,100 @@ const GrowManager = {
 	editHistoryEntry(groupId, potId, index) {
 		const group = App.state.growGroups.find(g => g.id === groupId);
 		const pot = group?.pots.find(p => p.id === potId);
-		if (!pot || !pot.history?.[index]) return alert("Entry not found");
+		if (!pot || !pot.history?.[index]) {
+			console.error('Invalid history access', { potId, index });
+			return alert("Entry not found");
+		}
 
 		const entry = pot.history[index];
+		if (!entry) {
+			console.error('Entry is null at index', index);
+			return alert("Entry missing");
+		}
+
 		this.currentGroupId = groupId;
 		this.currentPotId = potId;
 		this.editingHistoryIndex = index;
 
-		const type = entry.entryType;
+		const entryType = entry.entryType || 'unknown'; // fallback
 
-		if (type === "harvest") {
-			// Open harvest modal
-			document.getElementById("harvestModalTitle").textContent = `Edit Harvest Entry #${index + 1}`;
+		console.log('Editing entry type:', entryType, entry); // debug
 
-			const harvestTime = new Date(entry.recordedAt).toLocaleString([], {
-				year: 'numeric', month: 'short', day: 'numeric',
-				hour: '2-digit', minute: '2-digit'
-			});
-			document.getElementById("harvestPotInfo").textContent = `Fixed time: ${harvestTime}`;
+		switch (entryType) {
+			case 'harvest':
+				// Harvest modal
+				document.getElementById("harvestModalTitle").textContent = `Edit Harvest Entry #${index + 1}`;
 
-			if (entry.harvestType === "Female" || entry.harvestBuds !== undefined) {
-				document.getElementById("femaleHarvest").style.display = "block";
-				document.getElementById("maleHarvest").style.display = "none";
-				document.getElementById("harvestBuds").value = entry.harvestBuds || "";
-				document.getElementById("harvestQuality").value = entry.harvestQuality || "";
-			} else {
-				document.getElementById("femaleHarvest").style.display = "none";
-				document.getElementById("maleHarvest").style.display = "block";
-				// For multiple seeds: clear and reload rows
-				document.getElementById("seedList").innerHTML = "";
-				if (entry.harvestSeeds && entry.harvestSeeds.length > 0) {
-					entry.harvestSeeds.forEach(s => addSeedRow(s.strain, s.count));
+				const harvestTime = new Date(entry.recordedAt).toLocaleString([], {
+					year: 'numeric', month: 'short', day: 'numeric',
+					hour: '2-digit', minute: '2-digit'
+				});
+				document.getElementById("harvestPotInfo").textContent = `Fixed time: ${harvestTime}`;
+
+				if (entry.harvestType === "Female" || entry.harvestBuds !== undefined) {
+					document.getElementById("femaleHarvest").style.display = "block";
+					document.getElementById("maleHarvest").style.display = "none";
+					document.getElementById("harvestBuds").value = entry.harvestBuds || "";
+					document.getElementById("harvestQuality").value = entry.harvestQuality || "";
 				} else {
-					addSeedRow(entry.harvestSeedsStrain || "", entry.harvestSeedsCount || "");
+					document.getElementById("femaleHarvest").style.display = "none";
+					document.getElementById("maleHarvest").style.display = "block";
+					document.getElementById("seedList").innerHTML = "";
+					if (entry.harvestSeeds && entry.harvestSeeds.length > 0) {
+						entry.harvestSeeds.forEach(s => addSeedRow(s.strain, s.count));
+					} else {
+						addSeedRow(entry.harvestSeedsStrain || "", entry.harvestSeedsCount || "");
+					}
 				}
-			}
 
-			document.getElementById("harvestNotes").value = entry.notes || "";
+				document.getElementById("harvestNotes").value = entry.notes || "";
+				document.getElementById("harvestModal").style.display = "flex";
+				break;
 
-			document.getElementById("harvestModal").style.display = "flex";
-		} else if (type === "seed-planted") {
-			// Open plant seed modal (pre-filled)
-			document.getElementById("plantModalTitle").textContent = `Edit Seed Planting #${index + 1}`;
-			document.getElementById("plantStrain").value = pot.plant?.strain || "";
-			document.getElementById("plantNotes").value = entry.notes || "";
+			case 'seed-planted':
+				// Plant seed modal
+				document.getElementById("plantModalTitle").textContent = `Edit Seed Planting Entry #${index + 1}`;
+				document.getElementById("plantStrain").value = pot.plant?.strain || entry.strain || "";
+				document.getElementById("plantNotes").value = entry.notes || "";
 
-			if (pot.plant?.sex === "Female") {
-				document.querySelector('input[name="plantSex"][value="Female"]').checked = true;
-			} else {
-				document.querySelector('input[name="plantSex"][value="Male"]').checked = true;
-			}
+				const sex = pot.plant?.sex || 'Female'; // fallback
+				document.querySelector(`input[name="plantSex"][value="${sex}"]`).checked = true;
 
-			document.getElementById("plantSeedModal").style.display = "flex";
-		} else if (type === "pot-created") {
-			// Simple read-only modal or alert
-			alert(`This is the initial "Pot Created" entry.\n\nTime: ${new Date(entry.recordedAt).toLocaleString()}\nNotes: ${entry.notes}\n\nWater: ${entry.waterPercent}%, Ground: ${entry.groundPercent}%, Light: ${entry.lightPercent}%\n\nYou can only edit notes if needed (via update modal), but core prep values are fixed.`);
-			// Or open update modal with limited fields
-			// document.getElementById("updateNotes").value = entry.notes || "";
-			// ... open update modal with read-only other fields ...
-		} else {
-			// Default: status update
-			document.getElementById("updateModalTitle").textContent = `Edit Status Update #${index + 1}`;
+				document.getElementById("plantSeedModal").style.display = "flex";
+				break;
 
-			document.getElementById("updateTimeDisplay").textContent = new Date(entry.recordedAt).toLocaleString([], {
-				year: 'numeric', month: 'short', day: 'numeric',
-				hour: '2-digit', minute: '2-digit'
-			});
+			case 'pot-created':
+				// Simple read-only modal or alert (pot created is usually not editable)
+				const prepTime = new Date(entry.recordedAt).toLocaleString([], {
+					year: 'numeric', month: 'short', day: 'numeric',
+					hour: '2-digit', minute: '2-digit'
+				});
 
-			document.getElementById("updateAge").value = entry.ageDisplay || '';
-			document.getElementById("updateStageName").value = entry.stageName || 'Seedling';
-			document.getElementById("updateStagePercent").value = entry.stagePercent || 0;
-			document.getElementById("updateHealth").value = entry.healthPercent || 0;
-			document.getElementById("updateWater").value = entry.waterPercent || 0;
-			document.getElementById("updateGround").value = entry.groundPercent || 0;
-			document.getElementById("updateLight").value = entry.lightPercent || 0;
-			document.getElementById("updateOverall").value = entry.overallPercent || 0;
-			document.getElementById("updateNotes").value = entry.notes || '';
+				alert(`This is the initial "Pot Created" entry.\n\nTime: ${prepTime}\nNotes: ${entry.notes || '—'}\n\nWater: ${entry.waterPercent || '?'}%\nGround: ${entry.groundPercent || '?'}%\nLight: ${entry.lightPercent || '?'}%\n\nCore prep values are fixed and cannot be edited.`);
+				break;
 
-			document.getElementById("updatePlantModal").style.display = "flex";
+			case 'status-update':
+			default:
+				// Regular update modal
+				document.getElementById("updateModalTitle").textContent = `Edit Status Update Entry #${index + 1}`;
+
+				document.getElementById("updateTimeDisplay").textContent = new Date(entry.recordedAt).toLocaleString([], {
+					year: 'numeric', month: 'short', day: 'numeric',
+					hour: '2-digit', minute: '2-digit'
+				});
+
+				document.getElementById("updateAge").value = entry.ageDisplay || '';
+				document.getElementById("updateStageName").value = entry.stageName || 'Seedling';
+				document.getElementById("updateStagePercent").value = entry.stagePercent || 0;
+				document.getElementById("updateHealth").value = entry.healthPercent || 0;
+				document.getElementById("updateWater").value = entry.waterPercent || 0;
+				document.getElementById("updateGround").value = entry.groundPercent || 0;
+				document.getElementById("updateLight").value = entry.lightPercent || 0;
+				document.getElementById("updateOverall").value = entry.overallPercent || 0;
+				document.getElementById("updateNotes").value = entry.notes || '';
+
+				document.getElementById("updatePlantModal").style.display = "flex";
+				break;
 		}
 	  },
 
