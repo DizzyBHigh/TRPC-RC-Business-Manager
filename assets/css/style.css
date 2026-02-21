@@ -1736,6 +1736,77 @@ button:disabled {
     text-align: center !important;
 }
 
+#actionTimeline,
+#timelineAnalyzerModal>div {
+    overflow: visible !important;
+    /* force allow overflow for tooltips */
+}
+
+/* Container for each marker */
+.timeline-tooltip {
+    position: absolute;
+    /* changed from relative → absolute so it positions correctly on timeline */
+    display: block;
+    cursor: help;
+}
+
+/* The dot itself */
+.timeline-tooltip .dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Tooltip text */
+.timeline-tooltip .tooltip-text {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    z-index: 9999;
+    /* very high */
+    bottom: 180%;
+    /* higher to clear the timeline */
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    width: max-content;
+    max-width: 260px;
+    background: #222;
+    color: #fff;
+    text-align: center;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7);
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: all 0.25s ease;
+}
+
+/* Show on hover of the whole container */
+.timeline-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Arrow */
+.timeline-tooltip .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -8px;
+    border-width: 8px;
+    border-style: solid;
+    border-color: #222 transparent transparent transparent;
+}
+
+#actionTimeline svg {
+    overflow: visible; }
+
 /* Animations */
 @keyframes toastPop {
     0% {
