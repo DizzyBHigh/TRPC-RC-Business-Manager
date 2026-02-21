@@ -1057,19 +1057,14 @@
                 </div>
             
                 <!-- Male section (seeds) -->
+                <!-- Male section (multiple seed types) -->
                 <div id="maleHarvest" style="display:none;">
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-                        <div>
-                            <label>Strain Name (for seeds)</label>
-                            <input type="text" id="harvestSeedStrain" placeholder="e.g. Cherry Pie (Silver)"
-                                style="width:100%; padding:8px; margin:5px 0;" />
-                        </div>
-                        <div>
-                            <label>Seeds Produced (count)</label>
-                            <input type="number" id="harvestSeedsCount" min="0" step="1" placeholder="e.g. 150"
-                                style="width:100%; padding:8px; margin:5px 0;" />
-                        </div>
-                    </div>
+                    <label>Seeds Produced (add multiple strains)</label>
+                    <div id="seedList" style="margin:10px 0;"></div>
+                    <button type="button" onclick="GrowManager.addSeedRow()"
+                        style="background:#3498db; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">
+                        + Add Seed Strain
+                    </button>
                 </div>
             
                 <textarea id="harvestNotes" placeholder="Harvest notes..."

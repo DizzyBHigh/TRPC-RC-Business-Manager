@@ -187,13 +187,13 @@ const GrowManager = {
 	renderPots() {
 		const container = document.getElementById("potsList");
 		container.innerHTML = "";
-		
-		// Grid: 2 columns on wide screens, 1 on narrow
+
+		// Grid layout: 2 columns on wide screens, 1 on narrow
 		container.style.cssText = `
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-			gap: 20px;
-			padding: 10px;
+		  display: grid;
+		  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+		  gap: 20px;
+		  padding: 10px;
 		`;
 
 		const group = App.state.growGroups.find(g => g.id === this.currentGroupId);
@@ -204,52 +204,74 @@ const GrowManager = {
 
 		group.pots.forEach(pot => {
 			const hasPlant = !!pot.plant;
+			const isHarvested = pot.harvested === true;
 
-			// Latest values
+			// Get display values — use frozen harvest values if available
 			let stageDisplay = "—";
 			let health = 0;
-			let water = pot.currentWater || 0;
-			let ground = pot.currentGround || 0;
-			let light = pot.currentLight || 0;
+			let water = pot.currentWater ?? 0;
+			let ground = pot.currentGround ?? 0;
+			let light = pot.currentLight ?? 0;
 			let overall = 0;
+			let stagePercent = 0;
 
 			if (hasPlant) {
-				const latest = pot.history?.length ? pot.history[pot.history.length - 1] : null;
-				if (latest) {
-					stageDisplay = `${latest.stageName || "—"} ${latest.stagePercent}%`;
-					stage = latest.stagePercent;
-					health = latest.healthPercent || 100;
-					water = latest.waterPercent;
-					ground = latest.groundPercent;
-					light = latest.lightPercent;
-					overall = latest.overallPercent;
+				if (isHarvested && pot.harvest) {
+					// Prioritize frozen harvest values
+					water = pot.harvest.finalWater ?? water;
+					ground = pot.harvest.finalGround ?? ground;
+					light = pot.harvest.finalLight ?? light;
+					health = pot.harvest.finalHealth ?? 100;
+					overall = pot.harvest.finalOverall ?? 0;
+					stagePercent = 100;
+					stageDisplay = "Harvested 100%";
 				} else {
-					stageDisplay = `${pot.plant.currentStage || "Seedling"} ${pot.plant.stagePercent || 0}%`;
-					health = pot.plant.healthPercent || 100;
+					// Active plant: use latest history or plant defaults
+					const latest = pot.history?.length ? pot.history[pot.history.length - 1] : null;
+					if (latest) {
+						stageDisplay = `${latest.stageName || "—"} ${latest.stagePercent}%`;
+						stagePercent = latest.stagePercent || 0;
+						health = latest.healthPercent || 100;
+						water = latest.waterPercent ?? water;
+						ground = latest.groundPercent ?? ground;
+						light = latest.lightPercent ?? light;
+						overall = latest.overallPercent ?? 0;
+					} else {
+						stageDisplay = `${pot.plant.currentStage || "Seedling"} ${pot.plant.stagePercent || 0}%`;
+						stagePercent = pot.plant.stagePercent || 0;
+						health = pot.plant.healthPercent || 100;
+					}
 				}
 			} else {
-				// Empty pot — just prep values
+				// Empty pot
 				overall = Math.round((water + ground + light) / 3);
 			}
 
-			// Age
+			// Age display
 			let ageDisplay = "—";
 			if (hasPlant) {
 				if (pot.harvested) {
-					// Use the age from the harvest history entry (fixed at harvest time)
-					const harvestEntry = pot.history?.findLast(e => e.stageName === "Harvested");
-					ageDisplay = harvestEntry?.ageDisplay || "—";
-					// Or fallback to pot.harvest.date if no history entry has age
-					if (ageDisplay === "—") {
-						const harvestTime = new Date(pot.harvest?.date);
+					// Prefer saved ageAtHarvest first
+					ageDisplay = pot.harvest?.ageAtHarvest || "—";
+
+					// Fallback: calculate from saved harvest date
+					if (ageDisplay === "—" && pot.harvest?.date && pot.plant?.plantedAt) {
+						const harvestTime = new Date(pot.harvest.date);
 						const planted = new Date(pot.plant.plantedAt);
-						const ageMs = harvestTime - planted;
-						const totalHours = Math.floor(ageMs / (1000 * 60 * 60));
-						const remainingMinutes = Math.floor((ageMs % (1000 * 60 * 60)) / (1000 * 60));
-						ageDisplay = `${totalHours}h ${remainingMinutes}m`;
+						if (!isNaN(harvestTime) && !isNaN(planted)) {
+							const ageMs = harvestTime - planted;
+							const totalHours = Math.floor(ageMs / (1000 * 60 * 60));
+							const remainingMinutes = Math.floor((ageMs % (1000 * 60 * 60)) / (1000 * 60));
+							ageDisplay = `${totalHours}h ${remainingMinutes}m`;
+						}
+					}
+
+					// Ultimate fallback
+					if (ageDisplay === "—") {
+						ageDisplay = "Unknown";
 					}
 				} else {
-					// Normal active plant: current age
+					// Active plant: live age
 					const planted = new Date(pot.plant.plantedAt);
 					const now = new Date();
 					const ageMs = now - planted;
@@ -261,21 +283,22 @@ const GrowManager = {
 
 			const div = document.createElement("div");
 			div.style.cssText = `
-				background:#0d1117;
-				border:1px solid #222;
-				border-radius:12px;
-				padding:16px;
-				box-shadow:0 4px 10px rgba(0,0,0,0.5);
-				min-height: 280px; /* consistent height */
-				display: flex;
-				flex-direction: column;
-			`;
+			background:#0d1117;
+			border:1px solid #222;
+			border-radius:12px;
+			padding:16px;
+			box-shadow:0 4px 10px rgba(0,0,0,0.5);
+			min-height: 280px;
+			display: flex;
+			flex-direction: column;
+		  `;
+
 			div.innerHTML = `
 			<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
 			  <div>
 				<strong style="font-size:1.3em;">${pot.label}</strong>
 				<br>
-				<style="color:#aaa;">
+				
 					${hasPlant
 						? `${pot.plant.strain} ${pot.plant.sex === 'Female' ? '♀' : '♂'} • ${ageDisplay}${pot.harvested ? ' (at harvest)' : ''}`
 						: 'Empty pot'
@@ -294,9 +317,9 @@ const GrowManager = {
 				  </div>
 				</div>
 				<div style="margin-bottom:8px;">
-				  <label >Stage: ${stageDisplay}</label>
+				  <label>Stage: ${stageDisplay}</label>
 				  <div style="background:#333; height:12px; border-radius:6px; overflow:hidden;">
-					<div style="background:#FB8607; width:${stage || 0}%; height:100%;"></div>
+					<div style="background:#FB8607; width:${stagePercent}%; height:100%;"></div>
 				  </div>
 				</div>
 			  ` : ''}
@@ -325,32 +348,71 @@ const GrowManager = {
 				</div>
 			  </div>
 			</div>
-
+	  
 			<!-- Buttons at bottom -->
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; padding-top:12px; border-top:1px solid #333;">
-        <button onclick="GrowManager.waterPlant('${group.id}', '${pot.id}')" 
-                style="background:#3498db; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; flex:1;">
-          Water (${water}%)
-        </button>
-        <button onclick="GrowManager.fertiliserPlant('${group.id}', '${pot.id}')" 
-                style="background:#44BD32; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; flex:1;">
-          Fertiliser (${ground}%)
-        </button>
+			<div style="display:flex; flex-direction:column; gap:12px; margin-top:auto; padding-top:12px; border-top:1px solid #333;">
+			<!-- Harvest summary – shown first (above buttons) for harvested pots -->
+			${hasPlant && pot.harvested ? `
+				<div style="padding:12px; background:#1a3c1a; border-radius:8px; text-align:center; color:#27ae60; font-weight:bold;">
+				Harvested ${pot.harvest?.type === "Female"
+									? `${pot.harvest.buds || 0}g @ ${pot.harvest.quality || 0}%`
+									: `${pot.harvest?.seedTotal || 0} seeds total`}
+				• Age at harvest: ${ageDisplay}
+				${pot.harvest?.type === "Male" && pot.harvest?.seeds?.length > 0
+									? `<br>${pot.harvest.seeds.map(s => `${s.count} × ${s.strain}`).join(', ')}`
+									: ''}
+				</div>
+			` : ''}
 
-        ${hasPlant && !pot.harvested
-			? ` <button onclick="GrowManager.updatePlant('${group.id}', '${pot.id}')" style="background:#2ecc71; color:black; flex:1;">Update Status</button>
-				<button onclick="GrowManager.harvestPlant('${group.id}', '${pot.id}')" style="background:#FB8607; color:white; flex:1;">Harvest</button>
-				<button onclick="GrowManager.viewHistory('${group.id}', '${pot.id}')" style="background:#6c5ce7; color:white; flex:1;">History</button>`
-				: (hasPlant && pot.harvested
-					? `<span style="color:#27ae60; font-weight:bold;">Harvested (${pot.harvest.buds || 0}g @ ${pot.harvest.quality || 0}%) • Age at harvest: ${ageDisplay}</span>
-					<button onclick="GrowManager.viewHistory('${group.id}', '${pot.id}')" style="background:#6c5ce7; color:white;">History</button>`
-					: `<button onclick="GrowManager.plantSeed('${group.id}', '${pot.id}')">Plant Seed</button>`
-			   )}
+			<!-- Action buttons row -->
+			<div style="display:flex; gap:8px; flex-wrap:wrap;">
+				<!-- Water & Fertiliser – hidden on harvested -->
+				${!pot.harvested ? `
+				<button onclick="GrowManager.waterPlant('${group.id}', '${pot.id}')" 
+						style="background:#3498db; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; flex:1;">
+					Water (${water}%)
+				</button>
+				<button onclick="GrowManager.fertiliserPlant('${group.id}', '${pot.id}')" 
+						style="background:#44BD32; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; flex:1;">
+					Fertiliser (${ground}%)
+				</button>
+				` : ''}
 
-        <button onclick="GrowManager.editPot('${group.id}', '${pot.id}')" style="background:#3498db; color:white; flex:1;">Edit</button>
-        <button onclick="GrowManager.deletePot('${group.id}', '${pot.id}')" style="background:#e74c3c; color:white; flex:1;">Delete</button>
-      </div>
+				<!-- Plant Seed – empty pots only -->
+				${!hasPlant ? `
+				<button onclick="GrowManager.plantSeed('${group.id}', '${pot.id}')" style="background:#27ae60; color:white; flex:1;">
+					Plant Seed
+				</button>
+				` : ''}
+
+				<!-- Update Status & Harvest – active plants only -->
+				${hasPlant && !pot.harvested ? `
+				<button onclick="GrowManager.updatePlant('${group.id}', '${pot.id}')" style="background:#2ecc71; color:black; flex:1;">
+					Update Status
+				</button>
+				<button onclick="GrowManager.harvestPlant('${group.id}', '${pot.id}')" style="background:#FB8607; color:white; flex:1;">
+					Harvest
+				</button>
+				` : ''}
+
+				<!-- History – always for plants with history -->
+				${hasPlant ? `
+				<button onclick="GrowManager.viewHistory('${group.id}', '${pot.id}')" style="background:#6c5ce7; color:white; flex:1;">
+					History
+				</button>
+				` : ''}
+
+				<!-- Edit & Delete – always -->
+				<button onclick="GrowManager.editPot('${group.id}', '${pot.id}')" style="background:#3498db; color:white; flex:1;">
+				Edit
+				</button>
+				<button onclick="GrowManager.deletePot('${group.id}', '${pot.id}')" style="background:#e74c3c; color:white; flex:1;">
+				Delete
+				</button>
+			</div>
+			</div>
 		  `;
+
 			container.appendChild(div);
 		});
 	  },
@@ -764,10 +826,12 @@ const GrowManager = {
 			  <td style="padding:10px; border-bottom:1px solid #333;">${entry.notes || '—'}</td>
 			  <td style="padding:10px; text-align:center; border-bottom:1px solid #333;">
 				${entry.harvestBuds !== undefined
-					? `${entry.harvestBuds}g @ ${entry.harvestQuality}%`
-					: entry.stageName || '—'
+					? `${entry.harvestBuds}g @ ${entry.harvestQuality}% (${entry.harvestStrain || '—'})`
+					: (entry.harvestType === "Male" && entry.harvestSeeds
+						? `${entry.harvestTotalSeeds || 0} seeds total<br>${entry.harvestSeeds.map(s => `${s.count} × ${s.strain}`).join(', ')}`
+						: '—')
 				}
-			  </td>
+				</td>
 			  <td style="padding:10px; text-align:center; border-bottom:1px solid #333; white-space:nowrap;">
 				<button class="edit-history-btn" data-original-index="${originalIndex}">Edit</button>
 				<button class="delete-history-btn" data-original-index="${originalIndex}">Delete</button>
@@ -912,8 +976,14 @@ const GrowManager = {
 		} else {
 			document.getElementById("femaleHarvest").style.display = "none";
 			document.getElementById("maleHarvest").style.display = "block";
-			document.getElementById("harvestSeedStrain").value = ""; // can be different
-			document.getElementById("harvestSeedsCount").value = "";
+			// If editing an existing harvest entry
+			if (this.editingHistoryIndex !== undefined) {
+				const entry = pot.history[this.editingHistoryIndex];
+				const seeds = entry.harvestSeeds || [{ strain: entry.harvestSeedsStrain || "", count: entry.harvestSeedsCount || "" }];
+				this.loadExistingSeeds(seeds);
+			} else {
+				this.loadExistingSeeds(); // new harvest → one empty row
+			}
 		}
 		document.getElementById("harvestNotes").value = "";
 
@@ -927,7 +997,7 @@ const GrowManager = {
 	saveHarvest() {
 		const group = App.state.growGroups.find(g => g.id === this.currentGroupId);
 		const pot = group?.pots.find(p => p.id === this.currentPotId);
-		if (!pot) return;
+		if (!pot || !pot.plant) return alert("No plant found to harvest");
 
 		const now = new Date();
 		const planted = new Date(pot.plant.plantedAt);
@@ -936,19 +1006,41 @@ const GrowManager = {
 		const remainingMinutes = Math.floor((ageMs % (1000 * 60 * 60)) / (1000 * 60));
 		const ageDisplay = `${totalHours}h ${remainingMinutes}m`;
 
+		// Get latest status (safe fallback)
+		const latest = pot.history?.length ? pot.history[pot.history.length - 1] : {
+			stageName: pot.plant.currentStage || "Flowering",
+			stagePercent: pot.plant.stagePercent || 100,
+			healthPercent: pot.plant.healthPercent || 100,
+			waterPercent: pot.currentWater || 0,
+			groundPercent: pot.currentGround || 0,
+			lightPercent: pot.currentLight || 0,
+			overallPercent: 0
+		};
+
+		// Final frozen values at harvest
+		const finalWater = pot.currentWater ?? latest.waterPercent ?? 0;
+		const finalGround = pot.currentGround ?? latest.groundPercent ?? 0;
+		const finalLight = pot.currentLight ?? latest.lightPercent ?? 0;
+		const finalHealth = latest.healthPercent ?? 100;
+		const finalOverall = Math.round((finalWater + finalGround + finalHealth + finalLight) / 4);
+
 		let harvestUpdate = {
+			recordedAt: this.editingHistoryIndex !== undefined
+				? pot.history[this.editingHistoryIndex].recordedAt
+				: now.toISOString(),
 			ageDisplay,
 			stageName: "Harvested",
 			stagePercent: 100,
+			healthPercent: finalHealth,
+			waterPercent: finalWater,
+			groundPercent: finalGround,
+			lightPercent: finalLight,
+			overallPercent: finalOverall,
 			notes: document.getElementById("harvestNotes").value.trim() || "Harvest completed"
 		};
 
-		// Preserve original recordedAt if editing
-		if (this.editingHistoryIndex !== undefined && this.editingHistoryIndex >= 0) {
-			harvestUpdate.recordedAt = pot.history[this.editingHistoryIndex].recordedAt;
-		} else {
-			harvestUpdate.recordedAt = now.toISOString();
-		}
+		let seeds = [];
+		let totalSeeds = 0;
 
 		if (pot.plant.sex === "Female") {
 			const buds = parseFloat(document.getElementById("harvestBuds").value) || 0;
@@ -960,48 +1052,67 @@ const GrowManager = {
 			harvestUpdate.harvestQuality = quality;
 			harvestUpdate.harvestStrain = pot.plant.strain;
 		} else {
-			const seedStrain = document.getElementById("harvestSeedStrain").value.trim() || pot.plant.strain;
-			const seedCount = parseInt(document.getElementById("harvestSeedsCount").value) || 0;
-			if (seedCount <= 0) return alert("Enter a positive seed count");
+			// Male: collect multiple strains
+			const seedRows = document.querySelectorAll('#seedList > div');
+			seeds = [];
+			totalSeeds = 0;
+
+			seedRows.forEach(row => {
+				const strain = row.querySelector('.seedStrain').value.trim();
+				const count = parseInt(row.querySelector('.seedCount').value) || 0;
+				if (strain && count > 0) {
+					seeds.push({ strain, count });
+					totalSeeds += count;
+				}
+			});
+
+			if (seeds.length === 0) return alert("Add at least one seed strain with count > 0");
 
 			harvestUpdate.harvestType = "Male";
-			harvestUpdate.harvestSeedsStrain = seedStrain;
-			harvestUpdate.harvestSeedsCount = seedCount;
+			harvestUpdate.harvestSeeds = seeds;
+			harvestUpdate.harvestTotalSeeds = totalSeeds;
 		}
 
-		// Fill in missing status fields from latest (for continuity)
-		const latest = pot.history?.length ? pot.history[pot.history.length - 1] : {};
-		harvestUpdate.healthPercent = latest.healthPercent || 100;
-		harvestUpdate.waterPercent = pot.currentWater || 0;
-		harvestUpdate.groundPercent = pot.currentGround || 0;
-		harvestUpdate.lightPercent = pot.currentLight || 0;
-		harvestUpdate.overallPercent = latest.overallPercent || 0;
-
+		// Save to history
 		if (this.editingHistoryIndex !== undefined && this.editingHistoryIndex >= 0) {
-			// Editing existing harvest entry
 			pot.history[this.editingHistoryIndex] = harvestUpdate;
 			this.editingHistoryIndex = undefined;
 		} else {
-			// New harvest
 			if (!pot.history) pot.history = [];
 			pot.history.push(harvestUpdate);
 		}
+
+		// Freeze values on pot for card display
+		pot.currentWater = finalWater;
+		pot.currentGround = finalGround;
+		pot.currentLight = finalLight;
 
 		// Update harvested status
 		pot.harvested = true;
 		pot.harvest = {
 			date: harvestUpdate.recordedAt,
 			type: pot.plant.sex,
+			ageAtHarvest: ageDisplay,
+			finalWater,
+			finalGround,
+			finalLight,
+			finalOverall,
+			finalHealth,
 			...(pot.plant.sex === "Female" ? {
 				buds: harvestUpdate.harvestBuds,
 				quality: harvestUpdate.harvestQuality,
-				strain: harvestUpdate.harvestStrain
+				strain: harvestUpdate.harvestStrain || pot.plant.strain
 			} : {
-				seedStrain: harvestUpdate.harvestSeedsStrain,
-				seedCount: harvestUpdate.harvestSeedsCount
+				seeds,
+				seedTotal: totalSeeds
 			}),
 			notes: harvestUpdate.notes
 		};
+
+		console.log("Harvest freeze:", {
+			finalWater, finalGround, finalLight, finalOverall,
+			potCurrent: { water: pot.currentWater, ground: pot.currentGround, light: pot.currentLight }
+		  });
 
 		App.save("growGroups");
 		this.cancelHarvestModal();
@@ -1014,7 +1125,32 @@ const GrowManager = {
 
 		alert(`Harvest ${this.editingHistoryIndex !== undefined ? 'updated' : 'completed'}!`);
 	  },
+
+	addSeedRow(existingStrain = "", existingCount = "") {
+		const list = document.getElementById("seedList");
+		const row = document.createElement("div");
+		row.style.cssText = "display:flex; gap:10px; margin:8px 0; align-items:center;";
+		row.innerHTML = `
+		  <input type="text" class="seedStrain" value="${existingStrain}" placeholder="Strain name" style="flex:1; padding:8px;" />
+		  <input type="number" class="seedCount" value="${existingCount}" min="0" step="1" placeholder="Count" style="width:120px; padding:8px;" />
+		  <button type="button" onclick="this.parentElement.remove()" style="background:#e74c3c; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">×</button>
+		`;
+		list.appendChild(row);
+	},
+
+	// Call this when opening male harvest
+	loadExistingSeeds(seeds = []) {
+		document.getElementById("seedList").innerHTML = "";
+		if (seeds.length === 0) {
+			this.addSeedRow(); // at least one empty row
+		} else {
+			seeds.forEach(s => addSeedRow(s.strain, s.count));
+		}
+	},
 };
+
+
+
 function createPercentCircle(percent, color) {
 	const radius = 10;
 	const circumference = 2 * Math.PI * radius;
