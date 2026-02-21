@@ -166,7 +166,8 @@ const GrowManager = {
 			groundPercent: ground,
 			lightPercent: light,
 			overallPercent: initialOverall,
-			notes: "Pot created – initial prep values set"
+			notes: "Pot created – initial prep values set",
+			entryType: "pot-created"   // ← NEW
 		});
 
 		const group = App.state.growGroups.find(g => g.id === this.currentGroupId);
@@ -402,6 +403,20 @@ const GrowManager = {
 				</button>
 				` : ''}
 
+				${hasPlant && pot.plant?.strain ? `
+					<button onclick="GrowManager.showStrainRecommendations('${pot.plant.strain.replace(/'/g, "\\'")}')" 
+							style="background:#9b59b6; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; flex:1;">
+					  Recommendations for ${pot.plant.strain}
+					</button>
+				  ` : ''}
+
+				  ${hasPlant && pot.plant?.strain ? `
+					<button onclick="GrowManager.showTimelineAnalyzer('${pot.plant.strain.replace(/'/g, "\\'")}')" 
+							style="background:#8e44ad; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; flex:1;">
+					  Timeline Analyzer
+					</button>
+				  ` : ''}
+
 				<!-- Edit & Delete – always -->
 				<button onclick="GrowManager.editPot('${group.id}', '${pot.id}')" style="background:#3498db; color:white; flex:1;">
 				Edit
@@ -480,19 +495,11 @@ const GrowManager = {
 		const now = new Date();
 		const nowISO = now.toISOString();
 
-		pot.plant = {
-			strain,
-			sex,                    // "Female" or "Male"
-			plantedAt: nowISO,
-			notes,
-			currentStage: "Seedling",
-			stagePercent: 0,
-			healthPercent: 100
-		};
-
-		// Add initial history entry
-		pot.history.push({
-			recordedAt: nowISO,
+		// Prepare the update object
+		const update = {
+			recordedAt: this.editingHistoryIndex !== undefined
+				? pot.history[this.editingHistoryIndex].recordedAt  // Preserve original timestamp when editing
+				: nowISO,
 			ageDisplay: "0h 0m",
 			stageName: "Seedling",
 			stagePercent: 0,
@@ -501,12 +508,42 @@ const GrowManager = {
 			groundPercent: pot.currentGround || 0,
 			lightPercent: pot.currentLight || 0,
 			overallPercent: Math.round((pot.currentWater + pot.currentGround + 100 + pot.currentLight) / 4),
-			notes: `Seed planted – ${sex} (${strain})${notes ? ' – ' + notes : ''} – initial state (Health 100%)`
-		});
+			notes: `Seed planted – ${sex} (${strain})${notes ? ' – ' + notes : ''} – initial state (Health 100%)`,
+			entryType: "seed-planted"
+		};
+
+		// Update the plant object
+		pot.plant = {
+			strain,
+			sex,
+			plantedAt: this.editingHistoryIndex !== undefined
+				? pot.plant.plantedAt  // Keep original planting time when editing
+				: nowISO,
+			notes,
+			currentStage: "Seedling",
+			stagePercent: 0,
+			healthPercent: 100
+		};
+
+		// Save to history
+		if (this.editingHistoryIndex !== undefined && this.editingHistoryIndex >= 0) {
+			// Editing existing entry
+			pot.history[this.editingHistoryIndex] = update;
+			this.editingHistoryIndex = undefined; // Reset flag
+		} else {
+			// New planting
+			if (!pot.history) pot.history = [];
+			pot.history.push(update);
+		}
 
 		App.save("growGroups");
 		this.cancelPlantModal();
 		this.renderPots();
+
+		// Optional: refresh history modal if it was open
+		if (document.getElementById("historyModal").style.display === "flex") {
+			this.viewHistory(this.currentGroupId, this.currentPotId);
+		}
 	  },
 
 	updatePlant(groupId, potId) {
@@ -595,7 +632,8 @@ const GrowManager = {
 			groundPercent: parseFloat(document.getElementById("updateGround").value) || 0,
 			lightPercent: parseFloat(document.getElementById("updateLight").value) || 0,
 			overallPercent: parseFloat(document.getElementById("updateOverall").value) || 0,
-			notes: document.getElementById("updateNotes").value.trim()
+			notes: document.getElementById("updateNotes").value.trim(),
+			entryType: "status-update"  // ← NEW
 		  };
 
 		// Update current pot values (latest state)
@@ -865,19 +903,22 @@ const GrowManager = {
 		if (!pot || !pot.history?.[index]) return alert("Entry not found");
 
 		const entry = pot.history[index];
+		this.currentGroupId = groupId;
+		this.currentPotId = potId;
+		this.editingHistoryIndex = index;
 
-		// Check if this is a harvest entry
-		if (entry.harvestBuds !== undefined || entry.harvestSeedsCount !== undefined) {
-			// It's a harvest — use harvest modal
+		const type = entry.entryType;
+
+		if (type === "harvest") {
+			// Open harvest modal
 			document.getElementById("harvestModalTitle").textContent = `Edit Harvest Entry #${index + 1}`;
 
 			const harvestTime = new Date(entry.recordedAt).toLocaleString([], {
 				year: 'numeric', month: 'short', day: 'numeric',
 				hour: '2-digit', minute: '2-digit'
 			});
-			document.getElementById("harvestPotInfo").textContent = `Original Time: ${harvestTime} (fixed)`;
+			document.getElementById("harvestPotInfo").textContent = `Fixed time: ${harvestTime}`;
 
-			// Show correct section based on type (from entry)
 			if (entry.harvestType === "Female" || entry.harvestBuds !== undefined) {
 				document.getElementById("femaleHarvest").style.display = "block";
 				document.getElementById("maleHarvest").style.display = "none";
@@ -886,19 +927,41 @@ const GrowManager = {
 			} else {
 				document.getElementById("femaleHarvest").style.display = "none";
 				document.getElementById("maleHarvest").style.display = "block";
-				document.getElementById("harvestSeedStrain").value = entry.harvestSeedsStrain || pot.plant?.strain || "";
-				document.getElementById("harvestSeedsCount").value = entry.harvestSeedsCount || "";
+				// For multiple seeds: clear and reload rows
+				document.getElementById("seedList").innerHTML = "";
+				if (entry.harvestSeeds && entry.harvestSeeds.length > 0) {
+					entry.harvestSeeds.forEach(s => addSeedRow(s.strain, s.count));
+				} else {
+					addSeedRow(entry.harvestSeedsStrain || "", entry.harvestSeedsCount || "");
+				}
 			}
 
 			document.getElementById("harvestNotes").value = entry.notes || "";
 
 			document.getElementById("harvestModal").style.display = "flex";
-		} else {
+		} else if (type === "seed-planted") {
+			// Open plant seed modal (pre-filled)
+			document.getElementById("plantModalTitle").textContent = `Edit Seed Planting #${index + 1}`;
+			document.getElementById("plantStrain").value = pot.plant?.strain || "";
+			document.getElementById("plantNotes").value = entry.notes || "";
 
-			// Re-use the update modal (or create a separate one if you prefer)
-			document.getElementById("updateModalTitle").textContent = `Edit History Entry #${index + 1}`;
-			document.getElementById("updateTimeContainer").style.display = 'block'; // still show it, just locked
-			// Show original time READ-ONLY as display (not editable)
+			if (pot.plant?.sex === "Female") {
+				document.querySelector('input[name="plantSex"][value="Female"]').checked = true;
+			} else {
+				document.querySelector('input[name="plantSex"][value="Male"]').checked = true;
+			}
+
+			document.getElementById("plantSeedModal").style.display = "flex";
+		} else if (type === "pot-created") {
+			// Simple read-only modal or alert
+			alert(`This is the initial "Pot Created" entry.\n\nTime: ${new Date(entry.recordedAt).toLocaleString()}\nNotes: ${entry.notes}\n\nWater: ${entry.waterPercent}%, Ground: ${entry.groundPercent}%, Light: ${entry.lightPercent}%\n\nYou can only edit notes if needed (via update modal), but core prep values are fixed.`);
+			// Or open update modal with limited fields
+			// document.getElementById("updateNotes").value = entry.notes || "";
+			// ... open update modal with read-only other fields ...
+		} else {
+			// Default: status update
+			document.getElementById("updateModalTitle").textContent = `Edit Status Update #${index + 1}`;
+
 			document.getElementById("updateTimeDisplay").textContent = new Date(entry.recordedAt).toLocaleString([], {
 				year: 'numeric', month: 'short', day: 'numeric',
 				hour: '2-digit', minute: '2-digit'
@@ -914,14 +977,9 @@ const GrowManager = {
 			document.getElementById("updateOverall").value = entry.overallPercent || 0;
 			document.getElementById("updateNotes").value = entry.notes || '';
 
-			// Remember we're editing an existing entry
-			this.editingHistoryIndex = index;
-
-
-
 			document.getElementById("updatePlantModal").style.display = "flex";
 		}
-	},
+	  },
 
 	deleteHistoryEntry(groupId, potId, index) {
 		if (!confirm("Delete this history entry? This cannot be undone.")) return;
@@ -1036,7 +1094,8 @@ const GrowManager = {
 			groundPercent: finalGround,
 			lightPercent: finalLight,
 			overallPercent: finalOverall,
-			notes: document.getElementById("harvestNotes").value.trim() || "Harvest completed"
+			notes: document.getElementById("harvestNotes").value.trim() || "Harvest completed",
+			entryType: "harvest"  // ← NEW
 		};
 
 		let seeds = [];
@@ -1126,29 +1185,403 @@ const GrowManager = {
 		alert(`Harvest ${this.editingHistoryIndex !== undefined ? 'updated' : 'completed'}!`);
 	  },
 
-	addSeedRow(existingStrain = "", existingCount = "") {
-		const list = document.getElementById("seedList");
-		const row = document.createElement("div");
-		row.style.cssText = "display:flex; gap:10px; margin:8px 0; align-items:center;";
-		row.innerHTML = `
-		  <input type="text" class="seedStrain" value="${existingStrain}" placeholder="Strain name" style="flex:1; padding:8px;" />
-		  <input type="number" class="seedCount" value="${existingCount}" min="0" step="1" placeholder="Count" style="width:120px; padding:8px;" />
-		  <button type="button" onclick="this.parentElement.remove()" style="background:#e74c3c; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">×</button>
-		`;
-		list.appendChild(row);
-	},
+	
 
 	// Call this when opening male harvest
 	loadExistingSeeds(seeds = []) {
 		document.getElementById("seedList").innerHTML = "";
 		if (seeds.length === 0) {
-			this.addSeedRow(); // at least one empty row
+			addSeedRow(); // at least one empty row
 		} else {
 			seeds.forEach(s => addSeedRow(s.strain, s.count));
 		}
 	},
+
+	closeStrainRecModal() {
+		document.getElementById("strainRecommendationsModal").style.display = "none";
+	},
+
+	analyzeStrainRecommendations(strain) {
+		if (!strain) return "No strain provided.";
+
+		const harvestedPots = [];
+		App.state.growGroups.forEach(group => {
+			group.pots.forEach(pot => {
+				if (pot.plant?.strain?.toLowerCase() === strain.toLowerCase() &&
+					pot.harvested &&
+					pot.harvest?.quality >= 70) {
+					harvestedPots.push(pot);
+				}
+			});
+		});
+
+		if (harvestedPots.length === 0) {
+			return "No harvested pots found for this strain yet with quality ≥70%. Log some successful grows first!";
+		}
+
+		// Sort by quality descending
+		harvestedPots.sort((a, b) => (b.harvest.quality || 0) - (a.harvest.quality || 0));
+
+		const topPots = harvestedPots.slice(0, Math.min(5, harvestedPots.length)); // top 5 max
+
+		// Average quality
+		const avgQuality = topPots.reduce((sum, p) => sum + (p.harvest.quality || 0), 0) / topPots.length;
+
+		// Average yield per day
+		let totalYieldPerDay = 0;
+		topPots.forEach(pot => {
+			const planted = new Date(pot.plant.plantedAt);
+			const harvested = new Date(pot.harvest.date);
+			const days = Math.max((harvested - planted) / (1000 * 60 * 60 * 24), 1); // avoid div by zero
+			totalYieldPerDay += (pot.harvest.buds || 0) / days;
+		});
+		const avgYieldPerDay = totalYieldPerDay / topPots.length;
+
+		// Prep range suggestions from initial values in top pots
+		const prepWaters = topPots.map(p => p.initialWater || p.currentWater || 0).filter(v => v > 0);
+		const prepGrounds = topPots.map(p => p.initialGround || p.currentGround || 0).filter(v => v > 0);
+
+		const minWater = prepWaters.length ? Math.min(...prepWaters) : 70;
+		const maxWater = prepWaters.length ? Math.max(...prepWaters) : 95;
+		const minGround = prepGrounds.length ? Math.min(...prepGrounds) : 60;
+		const maxGround = prepGrounds.length ? Math.max(...prepGrounds) : 90;
+
+		return {
+			topPots: topPots.length,
+			avgQuality: avgQuality.toFixed(1),
+			avgYieldPerDay: avgYieldPerDay.toFixed(1),
+			suggestedPrepWater: `${Math.round(minWater)}–${Math.round(maxWater)}%`,
+			suggestedPrepGround: `${Math.round(minGround)}–${Math.round(maxGround)}%`,
+			waterAdvice: "Re-water when water drops to 65–70% to avoid stress (based on pots that stayed mostly above 70%).",
+			groundAdvice: "Add fertiliser when ground approaches 60–65% (best pots kept ground 80–100% most of the time)."
+		};
+	  },
+
+	showStrainRecommendations(strain) {
+		if (!strain) return alert("No strain selected");
+
+		const analysis = this.analyzeStrainRecommendations(strain);
+
+		let html = `<strong>Recommendations for ${strain}</strong><br><br>`;
+
+		if (typeof analysis === 'string') {
+			html += `<p style="color:#e74c3c;">${analysis}</p>`;
+		} else {
+			html += `<p>Based on <strong>${analysis.topPots}</strong> high-quality harvests:</p>`;
+			html += `<ul style="margin:10px 0; padding-left:20px;">`;
+			html += `<li>Average quality: <strong>${analysis.avgQuality}%</strong></li>`;
+			html += `<li>Average yield per day: <strong>${analysis.avgYieldPerDay}g</strong></li>`;
+			html += `</ul>`;
+
+			html += `<p><strong>Preparation suggestions:</strong></p>`;
+			html += `<ul style="margin:10px 0; padding-left:20px;">`;
+			html += `<li>Start Water: <strong>${analysis.suggestedPrepWater}</strong> (high buffer helps prevent early drops)</li>`;
+			html += `<li>Start Ground: <strong>${analysis.suggestedPrepGround}</strong> (add fertiliser early if lower)</li>`;
+			html += `</ul>`;
+
+			html += `<p><strong>During grow advice:</strong></p>`;
+			html += `<ul style="margin:10px 0; padding-left:20px;">`;
+			html += `<li><strong>Water:</strong> ${analysis.waterAdvice}</li>`;
+			html += `<li><strong>Ground / Fertiliser:</strong> ${analysis.groundAdvice}</li>`;
+			html += `</ul>`;
+
+			html += `<p style="color:#888; font-size:0.9em; margin-top:20px;">These are derived from your top-performing pots. More high-quality harvests = better accuracy.</p>`;
+		}
+
+		document.getElementById("strainRecTitle").textContent = `Recommendations for ${strain}`;
+		document.getElementById("strainRecContent").innerHTML = html;
+
+		document.getElementById("strainRecommendationsModal").style.display = "flex";
+	  },
+
+	analyzeStrainTimeline(strain) {
+		const harvestedPots = [];
+		App.state.growGroups.forEach(g => {
+			g.pots.forEach(p => {
+				if (p.plant?.strain?.toLowerCase() === strain.toLowerCase() &&
+					p.harvested &&
+					p.harvest?.quality >= 70 &&
+					p.history?.length >= 3) {
+					harvestedPots.push(p);
+				}
+			});
+		});
+
+		if (harvestedPots.length < 2) {
+			return "Not enough high-quality harvested pots with history for this strain (need ≥2 with quality ≥70%).";
+		}
+
+		// Collect timeline + action points
+		const points = [];
+		const waterActions = [];
+		const fertActions = [];
+
+		harvestedPots.forEach(pot => {
+			pot.history.forEach(entry => {
+				if (entry.ageDisplay && entry.waterPercent !== undefined) {
+					const hours = parseFloat(entry.ageDisplay.split('h')[0]) || 0;
+					const minutes = parseFloat(entry.ageDisplay.split('m')[0].trim().replace('m', '')) || 0;
+					const totalHours = hours + minutes / 60;
+
+					points.push({
+						hours: totalHours,
+						water: entry.waterPercent,
+						ground: entry.groundPercent || 0
+					});
+
+					const notesLower = (entry.notes || "").toLowerCase();
+					if (notesLower.includes("water") || notesLower.includes("bottle") || notesLower.includes("+25%")) {
+						waterActions.push({
+							hours: totalHours,
+							waterBefore: entry.waterPercent,
+							note: entry.notes
+						});
+					}
+
+					if (notesLower.includes("fertilis") || (notesLower.includes("added") && notesLower.includes("ground"))) {
+						fertActions.push({
+							hours: totalHours,
+							groundBefore: entry.groundPercent,
+							note: entry.notes
+						});
+					}
+				}
+			});
+		});
+
+		if (points.length < 5) {
+			return "Not enough detailed history entries to analyze timeline.";
+		}
+
+		const maxHours = Math.max(...points.map(p => p.hours), 4);  // ← moved here
+
+		// Bucket logic...
+		const buckets = [ /* your buckets */];
+
+		const timeline = buckets.map(bucket => {
+			const inBucket = points.filter(p => p.hours >= bucket.min && p.hours < bucket.max);
+			if (inBucket.length === 0) return null;
+
+			const avgWater = inBucket.reduce((sum, p) => sum + p.water, 0) / inBucket.length;
+			const avgGround = inBucket.reduce((sum, p) => sum + p.ground, 0) / inBucket.length;
+
+			const waterColor = avgWater >= 70 ? '#2ecc71' : (avgWater >= 60 ? '#f39c12' : '#e74c3c');
+			const groundColor = avgGround >= 70 ? '#2ecc71' : (avgGround >= 60 ? '#f39c12' : '#e74c3c');
+
+			return {
+				bucket: bucket.label,
+				avgWater: Math.round(avgWater),
+				avgGround: Math.round(avgGround),
+				waterColor,
+				groundColor
+			};
+		}).filter(Boolean);
+
+		const waterSummary = waterActions.length > 0
+			? `Water typically added around ${Math.round((waterActions.reduce((sum, a) => sum + a.hours, 0) / waterActions.length) * 10) / 10} hours, when water was ~${Math.round(waterActions.reduce((sum, a) => sum + (a.waterBefore || 0), 0) / waterActions.length)}%.`
+			: "No clear watering events detected.";
+
+		const fertSummary = fertActions.length > 0
+			? `Fertiliser typically added around ${Math.round((fertActions.reduce((sum, a) => sum + a.hours, 0) / fertActions.length) * 10) / 10} hours, when ground was ~${Math.round(fertActions.reduce((sum, a) => sum + (a.groundBefore || 0), 0) / fertActions.length)}%.`
+			: "No clear fertiliser events detected.";
+
+		return {
+			potCount: harvestedPots.length,
+			timeline,
+			waterSummary,
+			fertSummary,
+			waterActions,
+			fertActions,
+			maxHours   // ← NEW: return this for visualization
+		};
+	  },
+
+	showStrainRecommendations(strain) {
+		if (!strain) return alert("No strain selected");
+
+		const analysis = this.analyzeStrainRecommendations(strain);
+
+		// Simple modal or alert for now
+		let message = `Recommendations for ${strain}\n\n`;
+
+		if (typeof analysis === 'string') {
+			message += analysis; // e.g. "No harvested pots found..."
+		} else {
+			message += `Based on ${analysis.topPots} high-quality harvests:\n\n`;
+			message += `Average quality: ${analysis.avgQuality}%\n`;
+			message += `Average yield per day: ${analysis.avgYieldPerDay}g\n\n`;
+			message += `Prep suggestions:\n`;
+			message += `- Water: ${analysis.suggestedPrepWater || '70–95%'} (start high to buffer drops)\n`;
+			message += `- Ground: ${analysis.suggestedPrepGround || '60–90%'} (add fertiliser early)\n\n`;
+			message += `Water advice: ${analysis.waterAdvice || 'Re-water at 65–70% to avoid stress'}\n`;
+			message += `Ground/fertiliser advice: ${analysis.groundAdvice || 'Add when <65%, aim 60–100%'}`;
+		}
+
+		alert(message); // Replace with nice modal later
+	  },
+
+	closeTimelineModal() {
+		document.getElementById("timelineAnalyzerModal").style.display = "none";
+	},
+
+	showTimelineAnalyzer(strain) {
+		if (!strain) return alert("No strain selected");
+
+		const analysis = this.analyzeStrainTimeline(strain);
+
+		let html = `<strong>Timeline Analyzer for ${strain}</strong><br><br>`;
+
+		if (typeof analysis !== 'string') {
+			// Table + summaries (this is the missing part)
+			document.getElementById("timelineTableSection").innerHTML = `
+			<p>Based on <strong>${analysis.potCount}</strong> high-quality pots:</p>
+
+			<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:14px;">
+				<thead>
+				<tr style="background:#222; color:#fff;">
+					<th style="padding:10px; border:1px solid #444; text-align:left;">Age Bucket</th>
+					<th style="padding:10px; border:1px solid #444; text-align:center;">Avg Water %</th>
+					<th style="padding:10px; border:1px solid #444; text-align:center;">Avg Ground %</th>
+				</tr>
+				</thead>
+				<tbody>
+				${analysis.timeline.map(row => `
+					<tr style="border-bottom:1px solid #333;">
+					<td style="padding:10px; border:1px solid #444;">${row.bucket}</td>
+					<td style="padding:10px; border:1px solid #444; text-align:center; color:${row.waterColor};">${row.avgWater}%</td>
+					<td style="padding:10px; border:1px solid #444; text-align:center; color:${row.groundColor};">${row.avgGround}%</td>
+					</tr>
+				`).join('')}
+				</tbody>
+			</table>
+
+			<p style="margin-top:20px;"><strong>Watering timing summary:</strong><br>${analysis.waterSummary}</p>
+			<p><strong>Fertiliser timing summary:</strong><br>${analysis.fertSummary}</p>
+
+			<p style="color:#888; font-size:0.9em; margin-top:20px;">
+				Color key: 
+				<span style="color:#2ecc71;">Green</span> = good range, 
+				<span style="color:#f39c12;">Orange</span> = watch zone, 
+				<span style="color:#e74c3c;">Red</span> = low/risk
+			</p>
+			`;
+
+			// Timeline visualization - improved
+			const timelineDiv = document.getElementById("actionTimeline");
+			timelineDiv.innerHTML = '';
+			timelineDiv.style.position = 'relative';
+			timelineDiv.style.height = '180px'; // taller to fit lines + labels
+
+			const maxHours = analysis.maxHours || 4;
+			const scale = 100 / maxHours; // % width per hour
+
+			// 1. Water trend line (blue stepped line)
+			let waterPoints = '';
+			let groundPoints = '';
+			analysis.timeline.forEach((bucket, i) => {
+				const x = ((bucket.bucket.split('–')[0].trim() * 1 + bucket.bucket.split('–')[1].trim() * 1) / 2) * scale; // midpoint of bucket
+				const waterY = 120 - (bucket.avgWater * 1.2); // invert Y so higher % = higher on graph
+				const groundY = 120 - (bucket.avgGround * 1.2);
+
+				if (i === 0) {
+					waterPoints += `M ${x} ${waterY}`;
+					groundPoints += `M ${x} ${groundY}`;
+				} else {
+					waterPoints += ` L ${x} ${waterY}`;
+					groundPoints += ` L ${x} ${groundY}`;
+				}
+			});
+
+			// 2. Initial pot marker (at 0h)
+			const initialWater = analysis.timeline[0]?.avgWater || 90; // fallback
+			const initialGround = analysis.timeline[0]?.avgGround || 90;
+			const initialMarker = `
+			  <div style="position:absolute; bottom:120px; left:0%; transform:translateX(-50%); z-index:5;">
+				<div style="width:18px; height:18px; background:#ecf0f1; border-radius:50%; border:3px solid #bdc3c7; cursor:help;"
+					 title="Initial pot setup\nWater: ${initialWater}%\nGround: ${initialGround}%">
+				</div>
+				<div style="position:absolute; top:-35px; left:50%; transform:translateX(-50%); font-size:11px; color:#ecf0f1;">
+				  Start
+				</div>
+			  </div>
+			`;
+
+			// 3. Action markers (water higher, fert lower)
+			let markers = '';
+			analysis.waterActions.forEach(action => {
+				const left = (action.hours * scale);
+				markers += `
+				<div class="timeline-tooltip" style="position:absolute; bottom:100px; left:${left}%; transform:translateX(-50%); z-index:10;">
+				  <div class="dot" style="background:#3498db; width:16px; height:16px;"></div>
+				  <span class="tooltip-text">
+					Water added<br>
+					${action.hours.toFixed(1)} h<br>
+					(~${Math.round(action.hours)}h ${Math.round((action.hours % 1) * 60)}m)<br>
+					${action.note || 'Water event'}
+				  </span>
+				</div>
+			  `;
+			});
+
+			analysis.fertActions.forEach(action => {
+				const left = (action.hours * scale);
+				markers += `
+				<div class="timeline-tooltip" style="position:absolute; bottom:70px; left:${left}%; transform:translateX(-50%); z-index:10;">
+				  <div class="dot" style="background:#44bd32; width:16px; height:16px;"></div>
+				  <span class="tooltip-text">
+					Fertiliser added<br>
+					${action.hours.toFixed(1)} h<br>
+					(~${Math.round(action.hours)}h ${Math.round((action.hours % 1) * 60)}m)<br>
+					${action.note || 'Fertiliser event'}
+				  </span>
+				</div>
+			  `;
+			});
+
+			// 4. Age labels at bottom
+			let labels = '';
+			for (let h = 0; h <= Math.ceil(maxHours); h += 0.5) { // finer steps
+				const left = (h * scale);
+				labels += `
+				<div style="position:absolute; bottom:-30px; left:${left}%; transform:translateX(-50%); font-size:10px; color:#888;">
+				  ${h}h
+				</div>
+			  `;
+			}
+
+			// 5. Combine everything
+			timelineDiv.innerHTML = `
+			  <!-- Water trend line -->
+			  <svg style="position:absolute; top:0; left:0; width:100%; height:100%;" viewBox="0 0 100 120" preserveAspectRatio="none">
+				<path d="${waterPoints}" fill="none" stroke="#3498db" stroke-width="3" opacity="0.8"/>
+				<path d="${groundPoints}" fill="none" stroke="#44bd32" stroke-width="3" opacity="0.8"/>
+			  </svg>
+		  
+			  ${initialMarker}
+			  ${markers}
+			  ${labels}
+		  
+			  <!-- Baseline -->
+			  <div style="position:absolute; bottom:0; left:0; right:0; height:2px; background:#555;"></div>
+			`;
+		  }
+
+		document.getElementById("timelineModalTitle").textContent = `Timeline Analyzer: ${strain}`;
+		document.getElementById("timelineAnalyzerModal").style.display = "flex";
+	  },
 };
 
+function addSeedRow(existingStrain = "", existingCount = "") {
+	const list = document.getElementById("seedList");
+	const row = document.createElement("div");
+	row.style.cssText = "display:flex; gap:10px; margin:8px 0; align-items:center;";
+	row.innerHTML = `
+	  <input type="text" class="seedStrain" value="${existingStrain}" placeholder="Strain name" style="flex:1; padding:8px;" />
+	  <input type="number" class="seedCount" value="${existingCount}" min="0" step="1" placeholder="Count" style="width:120px; padding:8px;" />
+	  <button type="button" onclick="this.parentElement.remove()" style="background:#e74c3c; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">×</button>
+	`;
+	list.appendChild(row);
+};
 
 
 function createPercentCircle(percent, color) {
