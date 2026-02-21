@@ -250,9 +250,28 @@ const GrowManager = {
 			// Age display
 			let ageDisplay = "—";
 			if (hasPlant) {
-				if (isHarvested) {
+				if (pot.harvested) {
+					// Prefer saved ageAtHarvest first
 					ageDisplay = pot.harvest?.ageAtHarvest || "—";
+
+					// Fallback: calculate from saved harvest date
+					if (ageDisplay === "—" && pot.harvest?.date && pot.plant?.plantedAt) {
+						const harvestTime = new Date(pot.harvest.date);
+						const planted = new Date(pot.plant.plantedAt);
+						if (!isNaN(harvestTime) && !isNaN(planted)) {
+							const ageMs = harvestTime - planted;
+							const totalHours = Math.floor(ageMs / (1000 * 60 * 60));
+							const remainingMinutes = Math.floor((ageMs % (1000 * 60 * 60)) / (1000 * 60));
+							ageDisplay = `${totalHours}h ${remainingMinutes}m`;
+						}
+					}
+
+					// Ultimate fallback
+					if (ageDisplay === "—") {
+						ageDisplay = "Unknown";
+					}
 				} else {
+					// Active plant: live age
 					const planted = new Date(pot.plant.plantedAt);
 					const now = new Date();
 					const ageMs = now - planted;
@@ -279,12 +298,12 @@ const GrowManager = {
 			  <div>
 				<strong style="font-size:1.3em;">${pot.label}</strong>
 				<br>
-				<small style="color:#aaa;">
-				  ${hasPlant
-					? `${pot.plant.strain} ${pot.plant.sex === 'Female' ? '♀' : '♂'} • ${ageDisplay}${isHarvested ? ' (at harvest)' : ''}`
-					: 'Empty pot'
-				}
-				</small>
+				
+					${hasPlant
+						? `${pot.plant.strain} ${pot.plant.sex === 'Female' ? '♀' : '♂'} • ${ageDisplay}${pot.harvested ? ' (at harvest)' : ''}`
+						: 'Empty pot'
+					}
+				
 			  </div>
 			</div>
 	  
@@ -1094,7 +1113,7 @@ const GrowManager = {
 			finalWater, finalGround, finalLight, finalOverall,
 			potCurrent: { water: pot.currentWater, ground: pot.currentGround, light: pot.currentLight }
 		  });
-		  
+
 		App.save("growGroups");
 		this.cancelHarvestModal();
 		this.renderPots();
