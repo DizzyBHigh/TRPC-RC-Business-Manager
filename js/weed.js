@@ -16,10 +16,10 @@ const GrowManager = {
 
 	saveGroup() {
 		const name = document.getElementById("groupName").value.trim();
-		if (!name) return alert("Group name required");
+		if (!name) showToast("fail", "Group name required", duration = 3000);
 
 		const start = document.getElementById("groupStartDate").value;
-		if (!start) return alert("Select start date/time");
+		if (!start) showToast("fail", "Select start date/time", duration = 3000);;
 
 		const group = {
 			id: this.currentGroupId || "grow-" + Date.now(),
@@ -44,7 +44,7 @@ const GrowManager = {
 
 	editGroup(id) {
 		const group = App.state.growGroups.find(g => g.id === id);
-		if (!group) return alert("Group not found");
+		if (!group) return showToast("fail", "Group not found", duration = 3000);
 
 		this.currentGroupId = id;
 		document.getElementById("groupModalTitle").textContent = "Edit Grow Group";
@@ -64,7 +64,7 @@ const GrowManager = {
 	viewGroup(id) {
 		this.currentGroupId = id;
 		const group = App.state.growGroups.find(g => g.id === id);
-		if (!group) return alert("Group not found");
+		if (!group) return showToast("fail", "Group not found", duration = 3000);
 
 		document.getElementById("potsGroupTitle").textContent = `${group.name} - Pots`;
 		document.getElementById("groupList").style.display = "none";
@@ -115,12 +115,12 @@ const GrowManager = {
 
 	// ─── Pots ───
 	addPot() {
-		if (!this.currentGroupId) return alert("No group selected");
+		if (!this.currentGroupId) return showToast("fail", "No group selected", duration = 3000);
 		this.currentPotId = null;
 		document.getElementById("potModalTitle").textContent = "New Pot";
 		document.getElementById("potLabel").value = "";
 		document.getElementById("potWater").value = "0";
-		document.getElementById("potGround").value = "0";
+		document.getElementById("potGround").value = "20";
 		document.getElementById("potLight").value = "75";
 		document.getElementById("potModal").style.display = "flex";
 	},
@@ -131,7 +131,7 @@ const GrowManager = {
 
 	savePot() {
 		const label = document.getElementById("potLabel").value.trim();
-		if (!label) return alert("Pot label required");
+		if (!label) showToast("fail", "Pot label required", duration = 3000);
 
 		const water = parseInt(document.getElementById("potWater").value) || 0;
 		const ground = parseInt(document.getElementById("potGround").value) || 0;
@@ -146,7 +146,9 @@ const GrowManager = {
 			currentWater: water,
 			currentGround: ground,
 			currentLight: light,
-			plant: null,          // set when seed planted
+			plant: null,        
+			lastWaterReset: { time: nowISO, level: water },
+			lastGroundReset: { time: nowISO, level: ground },  
 			history: [],
 			actions: []
 		};
@@ -171,7 +173,7 @@ const GrowManager = {
 		});
 
 		const group = App.state.growGroups.find(g => g.id === this.currentGroupId);
-		if (!group) return alert("Group not found");
+		if (!group) showToast("fail", "Group not found", duration = 3000);
 
 		if (this.currentPotId) {
 			const idx = group.pots.findIndex(p => p.id === this.currentPotId);
@@ -218,7 +220,6 @@ const GrowManager = {
 
 			if (hasPlant) {
 				if (isHarvested && pot.harvest) {
-					// Prioritize frozen harvest values
 					water = pot.harvest.finalWater ?? water;
 					ground = pot.harvest.finalGround ?? ground;
 					light = pot.harvest.finalLight ?? light;
@@ -227,7 +228,6 @@ const GrowManager = {
 					stagePercent = 100;
 					stageDisplay = "Harvested 100%";
 				} else {
-					// Active plant: use latest history or plant defaults
 					const latest = pot.history?.length ? pot.history[pot.history.length - 1] : null;
 					if (latest) {
 						stageDisplay = `${latest.stageName || "—"} ${latest.stagePercent}%`;
@@ -244,7 +244,6 @@ const GrowManager = {
 					}
 				}
 			} else {
-				// Empty pot
 				overall = Math.round((water + ground + light) / 3);
 			}
 
@@ -252,10 +251,8 @@ const GrowManager = {
 			let ageDisplay = "—";
 			if (hasPlant) {
 				if (pot.harvested) {
-					// Prefer saved ageAtHarvest first
 					ageDisplay = pot.harvest?.ageAtHarvest || "—";
 
-					// Fallback: calculate from saved harvest date
 					if (ageDisplay === "—" && pot.harvest?.date && pot.plant?.plantedAt) {
 						const harvestTime = new Date(pot.harvest.date);
 						const planted = new Date(pot.plant.plantedAt);
@@ -267,12 +264,10 @@ const GrowManager = {
 						}
 					}
 
-					// Ultimate fallback
 					if (ageDisplay === "—") {
 						ageDisplay = "Unknown";
 					}
 				} else {
-					// Active plant: live age
 					const planted = new Date(pot.plant.plantedAt);
 					const now = new Date();
 					const ageMs = now - planted;
@@ -282,17 +277,136 @@ const GrowManager = {
 				}
 			}
 
+			// ─── Calculate estimated water & ground levels ──────────────────────────────
+			let estimatedWater = 100;
+			let estimatedGround = 100;
+
+			if (hasPlant && !isHarvested && pot.plant?.plantedAt) {
+				const now = new Date();
+				const rates = this.getAverageDropRates(pot.plant.strain || '');
+
+				// Water estimation
+				if (pot.lastWaterReset?.time && pot.lastWaterReset.level != null) {
+					const resetTime = new Date(pot.lastWaterReset.time);
+					if (!isNaN(resetTime.getTime())) {
+						const hoursElapsed = Math.max(0, (now - resetTime) / (1000 * 60 * 60));
+						estimatedWater = pot.lastWaterReset.level - (rates.waterPerHour * hoursElapsed);
+						// Clamp and apply small tolerance so tiny negatives don't snap to 0 instantly
+						estimatedWater = Math.max(0, Math.min(100, estimatedWater));
+					}
+				} else {
+					// Fallback: estimate from planting time (legacy pots without reset fields)
+					const planted = new Date(pot.plant.plantedAt);
+					if (!isNaN(planted.getTime())) {
+						const hoursElapsed = Math.max(0, (now - planted) / (1000 * 60 * 60));
+						estimatedWater = 100 - (rates.waterPerHour * hoursElapsed);
+						estimatedWater = Math.max(0, Math.min(100, estimatedWater));
+					}
+				}
+
+				// Ground / Fertiliser estimation
+				if (pot.lastGroundReset?.time && pot.lastGroundReset.level != null) {
+					const resetTime = new Date(pot.lastGroundReset.time);
+					if (!isNaN(resetTime.getTime())) {
+						const hoursElapsed = Math.max(0, (now - resetTime) / (1000 * 60 * 60));
+						estimatedGround = pot.lastGroundReset.level - (rates.groundPerHour * hoursElapsed);
+						estimatedGround = Math.max(0, Math.min(100, estimatedGround));
+					}
+				} else {
+					// Fallback: from planting time
+					const planted = new Date(pot.plant.plantedAt);
+					if (!isNaN(planted.getTime())) {
+						const hoursElapsed = Math.max(0, (now - planted) / (1000 * 60 * 60));
+						estimatedGround = 100 - (rates.groundPerHour * hoursElapsed);
+						estimatedGround = Math.max(0, Math.min(100, estimatedGround));
+					}
+				}
+
+				// Optional: clamp to realistic range (prevents crazy values from bad rates)
+				//estimatedWater = Math.min(100, Math.max(0, estimatedWater));
+				//estimatedGround = Math.min(100, Math.max(0, estimatedGround));
+			}
+
+			// Next action estimate (only for active plants)
+			let nextWaterEst = "—";
+			let nextFertEst = "—";
+			let panelBgColor = "#1c2526";
+			let panelBorderColor = "#333";
+			let panelAnimation = "";
+
+			let waterTargetTime = null;
+			let fertTargetTime = null;
+
+			if (hasPlant && !isHarvested) {
+				const currentWater = pot.currentWater ?? 0;
+				const currentGround = pot.currentGround ?? 0;
+
+				let currentAgeHours = 0;
+				if (ageDisplay !== "—") {
+					const [hStr, mStr] = ageDisplay.split(' ');
+					const h = parseFloat(hStr) || 0;
+					const m = parseFloat(mStr) || 0;
+					currentAgeHours = h + (m / 60);
+				}
+
+				const rates = this.getAverageDropRates(pot.plant.strain || '');
+
+				// Water logic
+				if (currentWater > 70) {
+					const hoursTo70 = (currentWater - 70) / rates.waterPerHour;
+					waterTargetTime = Date.now() + (hoursTo70 * 3600 * 1000);
+					nextWaterEst = `~${hoursTo70.toFixed(1)}h`;
+				} else {
+					nextWaterEst = "Now";
+					waterTargetTime = Date.now();
+				}
+
+				// Fertiliser logic
+				if (currentGround > 70) {
+					const hoursTo70 = (currentGround - 70) / rates.groundPerHour;
+					fertTargetTime = Date.now() + (hoursTo70 * 3600 * 1000);
+					nextFertEst = `~${hoursTo70.toFixed(1)}h`;
+				} else {
+					nextFertEst = "Now";
+					fertTargetTime = Date.now();
+				}
+
+				// Panel urgency
+				const waterUrgency = currentWater <= 70 ? 'urgent' :
+					(currentWater <= 75 ? 'soon' : 'safe');
+
+				const fertUrgency = currentGround <= 70 ? 'urgent' :
+					(currentGround <= 75 ? 'soon' : 'safe');
+
+				const isUrgent = (waterUrgency === 'urgent' || fertUrgency === 'urgent');
+				const isSoon = (waterUrgency === 'soon' || fertUrgency === 'soon') && !isUrgent;
+
+				if (isUrgent) {
+					panelBgColor = 'rgba(231, 76, 60, 0.35)';
+					panelBorderColor = '#e74c3c';
+					panelAnimation = 'pulse 1.5s infinite';
+				} else if (isSoon) {
+					panelBgColor = 'rgba(243, 156, 18, 0.35)';
+					panelBorderColor = '#f39c12';
+					panelAnimation = '';
+				} else {
+					panelBgColor = 'rgba(46, 204, 113, 0.20)';
+					panelBorderColor = '#2ecc71';
+					panelAnimation = '';
+				}
+			}
+
 			const div = document.createElement("div");
 			div.style.cssText = `
-			background:#0d1117;
-			border:1px solid #222;
-			border-radius:12px;
-			padding:16px;
-			box-shadow:0 4px 10px rgba(0,0,0,0.5);
-			min-height: 280px;
-			display: flex;
-			flex-direction: column;
-		  `;
+			  background:#0d1117;
+			  border:1px solid #222;
+			  border-radius:12px;
+			  padding:16px;
+			  box-shadow:0 4px 10px rgba(0,0,0,0.5);
+			  min-height: 280px;
+			  display: flex;
+			  flex-direction: column;
+			`;
 
 			div.innerHTML = `
 			<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -324,18 +438,45 @@ const GrowManager = {
 				  </div>
 				</div>
 			  ` : ''}
-			  <div style="margin-bottom:8px;">
-				<label>Water: ${water}%</label>
-				<div style="background:#333; height:12px; border-radius:6px; overflow:hidden;">
-				  <div style="background:#3498db; width:${water}%; height:100%;"></div>
+			  <!-- Water bar -->
+				<div style="margin-bottom:8px; position:relative;">
+				<label>Water: ${water}% (est. ${Math.round(estimatedWater)}%)</label>
+				<div style="background:#333; height:16px; border-radius:8px; overflow:hidden; position:relative;">
+					<!-- Background (gray) -->
+					<div style="background:#222; width:100%; height:100%; position:absolute; top:0; left:0; z-index:1;"></div>
+					
+					<!-- Actual level bar (bright, underneath) -->
+					<div style="background:#3498db; width:${water}%; height:100%; position:absolute; top:0; left:0; z-index:2; opacity:0.85;"></div>
+					
+					<!-- Estimated overlay — now more opaque (on top) -->
+					<div style="background:rgba(90, 155, 199, 1); width:${Math.max(estimatedWater, 0)}%; height:100%; position:absolute; top:0; left:0; z-index:3;"></div>
+					
+					<!-- Thin white line at actual level if different -->
+					${Math.abs(water - estimatedWater) > 3 ? `
+					<div style="position:absolute; top:0; left:${water}%; width:2px; height:100%; background:#fff; opacity:0.8; z-index:4;"></div>
+					` : ''}
 				</div>
-			  </div>
-			  <div style="margin-bottom:8px;">
-				<label>Ground: ${ground}%</label>
-				<div style="background:#333; height:12px; border-radius:6px; overflow:hidden;">
-				  <div style="background:#44BD32; width:${ground}%; height:100%;"></div>
 				</div>
-			  </div>
+
+				<!-- Ground bar -->
+				<div style="margin-bottom:8px; position:relative;">
+				<label>Ground: ${ground}% (est. ${Math.round(estimatedGround)}%)</label>
+				<div style="background:#333; height:16px; border-radius:8px; overflow:hidden; position:relative;">
+					<!-- Background (gray) -->
+					<div style="background:#222; width:100%; height:100%; position:absolute; top:0; left:0; z-index:1;"></div>
+					
+					<!-- Actual level bar (bright, underneath) -->
+					<div style="background:#44bd32; width:${ground}%; height:100%; position:absolute; top:0; left:0; z-index:2; opacity:0.85;"></div>
+					
+					<!-- Estimated overlay — now more opaque (on top) -->
+					<div style="background:rgba(163, 236, 193, 1); width:${Math.max(estimatedGround, 0)}%; height:100%; position:absolute; top:0; left:0; z-index:3;"></div>
+					
+					<!-- Thin white line at actual level if different -->
+					${Math.abs(ground - estimatedGround) > 3 ? `
+					<div style="position:absolute; top:0; left:${ground}%; width:2px; height:100%; background:#fff; opacity:0.8; z-index:4;"></div>
+					` : ''}
+				</div>
+				</div>
 			  <div style="margin-bottom:8px;">
 				<label>Light: ${light}%</label>
 				<div style="background:#333; height:12px; border-radius:6px; overflow:hidden;">
@@ -350,6 +491,30 @@ const GrowManager = {
 			  </div>
 			</div>
 	  
+			<!-- Next Water / Harvest -->
+			
+			<div class="action-estimate-panel"
+				data-water-target="${waterTargetTime || ''}" 
+				data-fert-target="${fertTargetTime || ''}"
+				style="margin:12px 0; padding:12px; border-radius:8px; background:${panelBgColor}; border:1px solid ${panelBorderColor}; transition:all 0.3s; animation:${panelAnimation};">
+				<strong style="display:block; margin-bottom:8px; color:#fff;">Next Action Estimate</strong>
+				
+				<div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+				<span style="color:#3498db;">Water:</span>
+				<span id="water-countdown-${pot.id}">${nextWaterEst}</span>
+				</div>
+				
+				<div style="display:flex; justify-content:space-between;">
+				<span style="color:#44bd32;">Fertiliser:</span>
+				<span id="fert-countdown-${pot.id}">${nextFertEst}</span>
+				</div>
+				
+				<small style="color:#888; display:block; margin-top:8px; font-size:0.85em;">
+				Rough estimate — check visually too.
+				</small>
+			</div>
+			
+
 			<!-- Buttons at bottom -->
 			<div style="display:flex; flex-direction:column; gap:12px; margin-top:auto; padding-top:12px; border-top:1px solid #333;">
 			<!-- Harvest summary – shown first (above buttons) for harvested pots -->
@@ -365,8 +530,19 @@ const GrowManager = {
 				</div>
 			` : ''}
 
+
+
 			<!-- Action buttons row -->
 			<div style="display:flex; gap:8px; flex-wrap:wrap;">
+
+			${!hasPlant ? `
+				<!-- Bulk Duplicate -->
+				<button onclick="GrowManager.bulkDuplicatePot('${group.id}', '${pot.id}')" 
+						style="background:#8e44ad; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; flex:1;">
+					Duplicate × N
+				</button>
+
+			` : ''}
 				<!-- Water & Fertiliser – hidden on harvested -->
 				${!pot.harvested ? `
 				<button onclick="GrowManager.waterPlant('${group.id}', '${pot.id}')" 
@@ -381,9 +557,13 @@ const GrowManager = {
 
 				<!-- Plant Seed – empty pots only -->
 				${!hasPlant ? `
-				<button onclick="GrowManager.plantSeed('${group.id}', '${pot.id}')" style="background:#27ae60; color:white; flex:1;">
-					Plant Seed
-				</button>
+					<button onclick="GrowManager.viewHistory('${group.id}', '${pot.id}')" style="background:#6c5ce7; color:white; flex:1;">
+						History
+					</button>
+					<button onclick="GrowManager.plantSeed('${group.id}', '${pot.id}')" style="background:#27ae60; color:white; flex:1;">
+						Plant Seed
+					</button>
+
 				` : ''}
 
 				<!-- Update Status & Harvest – active plants only -->
@@ -428,7 +608,7 @@ const GrowManager = {
 	editPot(groupId, potId) {
 		const group = App.state.growGroups.find(g => g.id === groupId);
 		const pot = group?.pots.find(p => p.id === potId);
-		if (!pot) return alert("Pot not found");
+		if (!pot) showToast("fail", "Pot not found", duration = 3000);
 
 		this.currentGroupId = groupId;
 		this.currentPotId = potId;
@@ -450,10 +630,66 @@ const GrowManager = {
 		}
 	},
 
+	bulkDuplicatePot(groupId, potId) {
+		const group = App.state.growGroups.find(g => g.id === groupId);
+		const sourcePot = group?.pots.find(p => p.id === potId);
+
+		if (!sourcePot) {
+			return showToast("fail", "Pot not found", duration = 3000);
+
+		}
+
+		if (sourcePot.plant) {
+			return showToast("fail", "Cannot duplicate — this pot already has a plant.\n\nDuplication is only for empty/prepped pots.", duration = 3000);
+		}
+
+		// Ask user how many copies
+		const countStr = prompt("How many copies to create?", "5");
+		if (!countStr) return; // cancelled
+
+		const count = parseInt(countStr, 10);
+		if (isNaN(count) || count < 1 || count > 20) {
+			return showToast("fail", "Please enter a number between 1 and 20.", duration = 3000);
+		}
+
+		// Create copies
+		const newPots = [];
+		for (let i = 1; i <= count; i++) {
+			const newPot = {
+				id: `pot-${Date.now() + i}`,
+				label: `Pot ${group.pots.length + i}`,
+				initialWater: sourcePot.currentWater ?? 0,
+				initialGround: sourcePot.currentGround ?? 0,
+				initialLight: sourcePot.currentLight ?? 0,
+				currentWater: sourcePot.currentWater ?? 0,
+				currentGround: sourcePot.currentGround ?? 0,
+				currentLight: sourcePot.currentLight ?? 0,
+				history: sourcePot.history ? [...sourcePot.history] : [], // copy prep history
+				actions: sourcePot.actions ? [...sourcePot.actions] : [],
+				harvested: false
+			};
+			newPots.push(newPot);
+		}
+
+		// Add all new pots to the group
+		if (!group.pots) group.pots = [];
+		group.pots.push(...newPots);
+
+		App.save("growGroups");
+
+		// Refresh UI
+		this.renderPots();
+
+		// Success message
+		showToast("success", `Successfully created ${count} duplicate pots!\nAll have the same prep levels:\nWater: ${sourcePot.currentWater}%\nGround: ${sourcePot.currentGround}%\nLight: ${sourcePot.currentLight}%`, duration = 3000);
+	  },
+
+
 	plantSeed(groupId, potId) {
 		const group = App.state.growGroups.find(g => g.id === groupId);
 		const pot = group?.pots.find(p => p.id === potId);
-		if (!pot) return alert("Pot not found");
+		if (!pot) return showToast("fail", "Pot not found", duration = 3000);
+
 
 		this.currentGroupId = groupId;
 		this.currentPotId = potId;
@@ -473,10 +709,10 @@ const GrowManager = {
 
 	savePlantSeed() {
 		const strain = document.getElementById("plantStrain").value.trim();
-		if (!strain) return alert("Enter a strain name");
+		if (!strain) return showToast("fail", "Enter a strain name", 3000);
 
 		const sexRadio = document.querySelector('input[name="plantSex"]:checked');
-		if (!sexRadio) return alert("Select plant sex");
+		if (!sexRadio) return showToast("fail", "Select plant sex", 3000);
 		const sex = sexRadio.value;
 
 		const notes = document.getElementById("plantNotes").value.trim();
@@ -488,7 +724,7 @@ const GrowManager = {
 		const now = new Date();
 		const nowISO = now.toISOString();
 
-		// Prepare the update object
+		// Prepare the history update object
 		const update = {
 			recordedAt: this.editingHistoryIndex !== undefined
 				? pot.history[this.editingHistoryIndex].recordedAt  // Preserve original timestamp when editing
@@ -500,7 +736,9 @@ const GrowManager = {
 			waterPercent: pot.currentWater || 0,
 			groundPercent: pot.currentGround || 0,
 			lightPercent: pot.currentLight || 0,
-			overallPercent: Math.round((pot.currentWater + pot.currentGround + 100 + pot.currentLight) / 4),
+			overallPercent: Math.round(
+				(pot.currentWater + pot.currentGround + 100 + pot.currentLight) / 4
+			),
 			notes: `Seed planted – ${sex} (${strain})${notes ? ' – ' + notes : ''} – initial state (Health 100%)`,
 			entryType: "seed-planted"
 		};
@@ -518,6 +756,22 @@ const GrowManager = {
 			healthPercent: 100
 		};
 
+		// ─── IMPORTANT: Reset estimation anchors to current levels at planting time ───
+		// This makes estimated water/ground start from whatever the pot currently has
+		// (usually after pre-watering/fert), instead of magically assuming 100%
+		pot.lastWaterReset = {
+			time: nowISO,
+			level: pot.currentWater || 0
+		};
+
+		pot.lastGroundReset = {
+			time: nowISO,
+			level: pot.currentGround || 0
+		};
+
+		// Optional: we could also reset light if you ever add light decay logic
+		// pot.lastLightReset = { time: nowISO, level: pot.currentLight || 0 };
+
 		// Save to history
 		if (this.editingHistoryIndex !== undefined && this.editingHistoryIndex >= 0) {
 			// Editing existing entry
@@ -534,15 +788,17 @@ const GrowManager = {
 		this.renderPots();
 
 		// Optional: refresh history modal if it was open
-		if (document.getElementById("historyModal").style.display === "flex") {
+		if (document.getElementById("historyModal")?.style.display === "flex") {
 			this.viewHistory(this.currentGroupId, this.currentPotId);
 		}
-	  },
+
+		showToast("success", `Planted ${sex.toLowerCase()} ${strain} in ${pot.label}`, 3000);
+	},
 
 	updatePlant(groupId, potId) {
 		const group = App.state.growGroups.find(g => g.id === groupId);
 		const pot = group?.pots.find(p => p.id === potId);
-		if (!pot || !pot.plant) return alert("No plant in this pot");
+		if (!pot || !pot.plant) return showToast("fail", "No plant in this pot", duration = 3000);
 
 		this.currentGroupId = groupId;
 		this.currentPotId = potId;
@@ -600,7 +856,8 @@ const GrowManager = {
 	saveUpdate() {
 		const group = App.state.growGroups.find(g => g.id === this.currentGroupId);
 		const pot = group?.pots.find(p => p.id === this.currentPotId);
-		if (!pot || !pot.plant) return alert("Plant not found");
+		if (!pot || !pot.plant) return showToast("fail", "Plant not found", duration = 3000);
+
 
 		const now = new Date(); // FIRST
 		const nowISO = now.toISOString();
@@ -657,7 +914,7 @@ const GrowManager = {
 	waterPlant(groupId, potId) {
 		const group = App.state.growGroups.find(g => g.id === groupId);
 		const pot = group?.pots.find(p => p.id === potId);
-		if (!pot) return alert("Pot not found");
+		if (!pot) return showToast("fail", "Plant not found", duration = 3000);
 
 		this.currentGroupId = groupId;
 		this.currentPotId = potId;
@@ -672,20 +929,28 @@ const GrowManager = {
 	},
 
 	applyWater() {
-		const bottles = parseInt(document.getElementById("waterBottles").value) || 0;
-		if (bottles < 1) return alert("Enter at least 1 bottle");
-
 		const group = App.state.growGroups.find(g => g.id === this.currentGroupId);
 		const pot = group?.pots.find(p => p.id === this.currentPotId);
 		if (!pot) return;
+
+		// ─── Create timestamps FIRST ─────────────────────────────────────────────
+		const now = new Date();
+		const nowISO = now.toISOString();
+
+		const bottles = parseInt(document.getElementById("waterBottles").value) || 0;
+		if (bottles < 1) return showToast("fail", "Enter at least 1 bottle", 3000);
 
 		const addedWater = bottles * 25;
 		const oldWater = pot.currentWater || 0;
 		pot.currentWater = Math.min(100, oldWater + addedWater);
 
-		// Create history entry
-		const now = new Date(); // FIRST
-		const nowISO = now.toISOString();
+		// Now it's safe to use nowISO
+		pot.lastWaterReset = {
+			time: nowISO,
+			level: pot.currentWater
+		};
+
+		// ─── Rest of your history entry creation ────────────────────────────────
 		const planted = pot.plant ? new Date(pot.plant.plantedAt) : now;
 		const ageMs = now - planted;
 		const totalHours = Math.floor(ageMs / (1000 * 60 * 60));
@@ -693,15 +958,7 @@ const GrowManager = {
 		const ageDisplay = `${totalHours}h ${remainingMinutes}m`;
 
 		const latest = pot.history?.length ? pot.history[pot.history.length - 1] : {
-			recordedAt: nowISO,
-			ageDisplay,  // ← save age here
-			stageName: pot.plant?.currentStage || "Seedling",
-			stagePercent: pot.plant?.stagePercent || 0,
-			healthPercent: pot.plant?.healthPercent || 100,
-			waterPercent: oldWater,
-			groundPercent: pot.currentGround || 0,
-			lightPercent: pot.currentLight || 0,
-			overallPercent: 0
+			// ... your fallback object ...
 		};
 
 		const newOverall = Math.round(
@@ -710,7 +967,7 @@ const GrowManager = {
 
 		const update = {
 			recordedAt: nowISO,
-			ageDisplay: `${totalHours}h ${remainingMinutes}m`,
+			ageDisplay,
 			stageName: latest.stageName,
 			stagePercent: latest.stagePercent,
 			healthPercent: latest.healthPercent,
@@ -727,14 +984,15 @@ const GrowManager = {
 		App.save("growGroups");
 		this.cancelWaterModal();
 		this.renderPots();
-		alert(`Watered ${bottles} bottle(s) → Water now ${pot.currentWater}%`);
-	  },
+		showToast("info", `Watered ${bottles} bottle(s) → Water now ${pot.currentWater}%`, 3000);
+	},
 
 	// Fertiliser Modal
 	fertiliserPlant(groupId, potId) {
 		const group = App.state.growGroups.find(g => g.id === groupId);
 		const pot = group?.pots.find(p => p.id === potId);
-		if (!pot) return alert("Pot not found");
+		if (!pot) showToast("fail", "Pot not found", duration = 3000);
+
 
 		this.currentGroupId = groupId;
 		this.currentPotId = potId;
@@ -750,13 +1008,22 @@ const GrowManager = {
 	},
 
 	applyFertiliser() {
-		const type = document.getElementById("fertType").value;
-		const amount = parseInt(document.getElementById("fertAmount").value) || 0;
-		if (!type || amount < 1) return alert("Select type and amount");
-
 		const group = App.state.growGroups.find(g => g.id === this.currentGroupId);
 		const pot = group?.pots.find(p => p.id === this.currentPotId);
-		if (!pot) return;
+		if (!pot) {
+			showToast("fail", "Pot not found", 3000);
+			return;
+		}
+
+		// ─── Define timestamps FIRST ─────────────────────────────────────────────
+		const now = new Date();
+		const nowISO = now.toISOString();
+
+		const type = document.getElementById("fertType").value;
+		const amount = parseInt(document.getElementById("fertAmount").value) || 0;
+		if (!type || amount < 1) {
+			return showToast("fail", "Select type and amount", 3000);
+		}
 
 		let addedPercent = 0;
 		switch (type) {
@@ -764,14 +1031,19 @@ const GrowManager = {
 			case "Yield": addedPercent = amount * 15; break;
 			case "Growth": addedPercent = amount * 10; break;
 			case "Black Market": addedPercent = amount * 25; break;
+			default: addedPercent = amount * 20;
 		}
 
 		const oldGround = pot.currentGround || 0;
 		pot.currentGround = Math.min(100, oldGround + addedPercent);
 
-		// Create history entry
-		const now = new Date(); // FIRST
-		const nowISO = now.toISOString();
+		// Now it's safe to use nowISO
+		pot.lastGroundReset = {
+			time: nowISO,
+			level: pot.currentGround
+		};
+
+		// ─── Create history entry ────────────────────────────────────────────────
 		const planted = pot.plant ? new Date(pot.plant.plantedAt) : now;
 		const ageMs = now - planted;
 		const totalHours = Math.floor(ageMs / (1000 * 60 * 60));
@@ -780,7 +1052,7 @@ const GrowManager = {
 
 		const latest = pot.history?.length ? pot.history[pot.history.length - 1] : {
 			recordedAt: nowISO,
-			ageDisplay,  // ← save age here
+			ageDisplay,
 			stageName: pot.plant?.currentStage || "Seedling",
 			stagePercent: pot.plant?.stagePercent || 0,
 			healthPercent: pot.plant?.healthPercent || 100,
@@ -796,7 +1068,7 @@ const GrowManager = {
 
 		const update = {
 			recordedAt: nowISO,
-			ageDisplay: `${totalHours}h ${remainingMinutes}m`,
+			ageDisplay,
 			stageName: latest.stageName,
 			stagePercent: latest.stagePercent,
 			healthPercent: latest.healthPercent,
@@ -813,14 +1085,14 @@ const GrowManager = {
 		App.save("growGroups");
 		this.cancelFertModal();
 		this.renderPots();
-		alert(`Added ${amount}× ${type} → Ground now ${pot.currentGround}%`);
-	  },
+		showToast("success", `Added ${amount}× ${type} → Ground now ${pot.currentGround}%`, 3000);
+	},
 
 	viewHistory(groupId, potId) {
 		const group = App.state.growGroups.find(g => g.id === groupId);
 		const pot = group?.pots.find(p => p.id === potId);
 		if (!pot || !pot.history?.length) {
-			alert("No update history yet for this plant.");
+			showToast("fail", "No update history yet for this plant.", duration = 3000);
 			return;
 		}
 
@@ -895,13 +1167,13 @@ const GrowManager = {
 		const pot = group?.pots.find(p => p.id === potId);
 		if (!pot || !pot.history?.[index]) {
 			console.error('Invalid history access', { potId, index });
-			return alert("Entry not found");
+			return showToast("fail", "Entry not found", duration = 3000);
 		}
 
 		const entry = pot.history[index];
 		if (!entry) {
 			console.error('Entry is null at index', index);
-			return alert("Entry missing");
+			return showToast("fail", "Entry missing", duration = 3000);
 		}
 
 		this.currentGroupId = groupId;
@@ -962,7 +1234,7 @@ const GrowManager = {
 					hour: '2-digit', minute: '2-digit'
 				});
 
-				alert(`This is the initial "Pot Created" entry.\n\nTime: ${prepTime}\nNotes: ${entry.notes || '—'}\n\nWater: ${entry.waterPercent || '?'}%\nGround: ${entry.groundPercent || '?'}%\nLight: ${entry.lightPercent || '?'}%\n\nCore prep values are fixed and cannot be edited.`);
+				showToast("success", `This is the initial "Pot Created" entry.\n\nTime: ${prepTime}\nNotes: ${entry.notes || '—'}\n\nWater: ${entry.waterPercent || '?'}%\nGround: ${entry.groundPercent || '?'}%\nLight: ${entry.lightPercent || '?'}%\n\nCore prep values are fixed and cannot be edited.`, duration = 3000);
 				break;
 
 			case 'status-update':
@@ -1022,7 +1294,8 @@ const GrowManager = {
 	harvestPlant(groupId, potId) {
 		const group = App.state.growGroups.find(g => g.id === groupId);
 		const pot = group?.pots.find(p => p.id === potId);
-		if (!pot || !pot.plant) return alert("No plant in this pot");
+		if (!pot || !pot.plant) return showToast("fail", "No plant in this pot!", duration = 3000);
+
 
 		this.currentGroupId = groupId;
 		this.currentPotId = potId;
@@ -1064,7 +1337,7 @@ const GrowManager = {
 	saveHarvest() {
 		const group = App.state.growGroups.find(g => g.id === this.currentGroupId);
 		const pot = group?.pots.find(p => p.id === this.currentPotId);
-		if (!pot || !pot.plant) return alert("No plant found to harvest");
+		if (!pot || !pot.plant) return showToast("fail", "No plant found to harvest", duration = 3000);
 
 		const now = new Date();
 		const planted = new Date(pot.plant.plantedAt);
@@ -1113,7 +1386,7 @@ const GrowManager = {
 		if (pot.plant.sex === "Female") {
 			const buds = parseFloat(document.getElementById("harvestBuds").value) || 0;
 			const quality = parseFloat(document.getElementById("harvestQuality").value) || 0;
-			if (buds <= 0) return alert("Enter a positive bud amount");
+			if (buds <= 0) returnshowToast("fail", "Enter a positive bud amount", duration = 3000);
 
 			harvestUpdate.harvestType = "Female";
 			harvestUpdate.harvestBuds = buds;
@@ -1134,7 +1407,7 @@ const GrowManager = {
 				}
 			});
 
-			if (seeds.length === 0) return alert("Add at least one seed strain with count > 0");
+			if (seeds.length === 0) return showToast("fail", "Add at least one seed strain with count > 0", duration = 3000);
 
 			harvestUpdate.harvestType = "Male";
 			harvestUpdate.harvestSeeds = seeds;
@@ -1191,7 +1464,7 @@ const GrowManager = {
 			this.viewHistory(this.currentGroupId, this.currentPotId);
 		}
 
-		alert(`Harvest ${this.editingHistoryIndex !== undefined ? 'updated' : 'completed'}!`);
+		showToast("success", `Harvest ${this.editingHistoryIndex !== undefined ? 'updated' : 'completed'}!`, duration = 3000);
 	  },
 
 	
@@ -1205,6 +1478,66 @@ const GrowManager = {
 			seeds.forEach(s => addSeedRow(s.strain, s.count));
 		}
 	},
+
+	getAverageDropRates(strain) {
+		if (!strain) return { waterPerHour: 22, groundPerHour: 20 };
+
+		// Optional: add cache if you call this very frequently
+		// if (this.dropRateCache?.[strain]) return this.dropRateCache[strain];
+
+		const relevantHistoryDeltas = [];
+
+		App.state.growGroups.forEach(g => {
+			g.pots.forEach(p => {
+				if (p.plant?.strain?.toLowerCase() === strain.toLowerCase() && p.history?.length >= 2) {
+					for (let i = 1; i < p.history.length; i++) {
+						const prev = p.history[i - 1];
+						const curr = p.history[i];
+						const hours = (new Date(curr.recordedAt) - new Date(prev.recordedAt)) / (3600 * 1000);
+
+						if (hours > 0.1 && hours < 72) { // ignore very short/long gaps
+							if (prev.waterPercent > curr.waterPercent) {
+								relevantHistoryDeltas.push({
+									type: 'water',
+									drop: prev.waterPercent - curr.waterPercent,
+									hours
+								});
+							}
+							if (prev.groundPercent > curr.groundPercent) {
+								relevantHistoryDeltas.push({
+									type: 'ground',
+									drop: prev.groundPercent - curr.groundPercent,
+									hours
+								});
+							}
+						}
+					}
+				}
+			});
+		});
+
+		const waterDeltas = relevantHistoryDeltas.filter(d => d.type === 'water');
+		const groundDeltas = relevantHistoryDeltas.filter(d => d.type === 'ground');
+
+		const avgWater = waterDeltas.length > 4
+			? waterDeltas.reduce((s, d) => s + d.drop / d.hours, 0) / waterDeltas.length
+			: 22;
+
+		const avgGround = groundDeltas.length > 4
+			? groundDeltas.reduce((s, d) => s + d.drop / d.hours, 0) / groundDeltas.length
+			: 20;
+
+		const rates = {
+			waterPerHour: Math.max(8, Math.min(32, Math.round(avgWater * 10) / 10)),
+			groundPerHour: Math.max(6, Math.min(30, Math.round(avgGround * 10) / 10))
+		};
+
+		// Optional: cache
+		// if (!this.dropRateCache) this.dropRateCache = {};
+		// this.dropRateCache[strain] = rates;
+
+		return rates;
+	  },
 
 	closeStrainRecModal() {
 		document.getElementById("strainRecommendationsModal").style.display = "none";
@@ -1266,68 +1599,103 @@ const GrowManager = {
 		};
 	  },
 
+	closeStrainRecModal() {
+		document.getElementById("strainRecommendationsModal").style.display = "none";
+	},
+
 	showStrainRecommendations(strain) {
-		if (!strain) return alert("No strain selected");
+		if (!strain) {
+			showToast("fail", "No strain selected");
+			return;
+		}
 
 		const analysis = this.analyzeStrainRecommendations(strain);
 
-		let html = `<strong>Recommendations for ${strain}</strong><br><br>`;
+		let html = '';
 
 		if (typeof analysis === 'string') {
-			html += `<p style="color:#e74c3c;">${analysis}</p>`;
+			html = `<p style="color:#e74c3c; text-align:center; margin:20px 0;">${analysis}</p>`;
 		} else {
-			html += `<p>Based on <strong>${analysis.topPots}</strong> high-quality harvests:</p>`;
-			html += `<ul style="margin:10px 0; padding-left:20px;">`;
-			html += `<li>Average quality: <strong>${analysis.avgQuality}%</strong></li>`;
-			html += `<li>Average yield per day: <strong>${analysis.avgYieldPerDay}g</strong></li>`;
-			html += `</ul>`;
-
-			html += `<p><strong>Preparation suggestions:</strong></p>`;
-			html += `<ul style="margin:10px 0; padding-left:20px;">`;
-			html += `<li>Start Water: <strong>${analysis.suggestedPrepWater}</strong> (high buffer helps prevent early drops)</li>`;
-			html += `<li>Start Ground: <strong>${analysis.suggestedPrepGround}</strong> (add fertiliser early if lower)</li>`;
-			html += `</ul>`;
-
-			html += `<p><strong>During grow advice:</strong></p>`;
-			html += `<ul style="margin:10px 0; padding-left:20px;">`;
-			html += `<li><strong>Water:</strong> ${analysis.waterAdvice}</li>`;
-			html += `<li><strong>Ground / Fertiliser:</strong> ${analysis.groundAdvice}</li>`;
-			html += `</ul>`;
-
-			html += `<p style="color:#888; font-size:0.9em; margin-top:20px;">These are derived from your top-performing pots. More high-quality harvests = better accuracy.</p>`;
+			html = `
+			<div style="text-align:center; margin-bottom:20px;">
+			  <h4 style="margin:0; color:#27ae60;">${strain}</h4>
+			  <small style="color:#aaa;">Based on ${analysis.topPots} high-quality harvests</small>
+			</div>
+	  
+			<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+			  <div style="background:#1a1f26; padding:12px; border-radius:8px; text-align:center;">
+				<div style="font-size:1.8rem; font-weight:bold; color:#3498db;">${analysis.avgQuality}%</div>
+				<div style="font-size:0.85rem; color:#aaa;">Avg Quality</div>
+			  </div>
+			  <div style="background:#1a1f26; padding:12px; border-radius:8px; text-align:center;">
+				<div style="font-size:1.8rem; font-weight:bold; color:#2ecc71;">${analysis.avgYieldPerDay}g/day</div>
+				<div style="font-size:0.85rem; color:#aaa;">Avg Yield</div>
+			  </div>
+			</div>
+	  
+			<div style="margin:20px 0;">
+			  <strong style="color:#fff;">Preparation suggestions</strong>
+			  <ul style="margin:8px 0 0 20px; padding-left:0; list-style:none;">
+				<li style="margin:6px 0;">💧 Water: <strong>${analysis.suggestedPrepWater || '70–95%'}</strong> <small>(start high to buffer drops)</small></li>
+				<li style="margin:6px 0;">🌱 Ground: <strong>${analysis.suggestedPrepGround || '60–90%'}</strong> <small>(add fertiliser early if lower)</small></li>
+			  </ul>
+			</div>
+	  
+			<div style="margin:20px 0;">
+			  <strong style="color:#fff;">During grow advice</strong>
+			  <ul style="margin:8px 0 0 20px; padding-left:0; list-style:none;">
+				<li style="margin:6px 0;">💧 <strong>Water:</strong> ${analysis.waterAdvice || 'Re-water at 65–70% to avoid stress'}</li>
+				<li style="margin:6px 0;">🌱 <strong>Ground / Fertiliser:</strong> ${analysis.groundAdvice || 'Add when <65%, aim 60–100%'}</li>
+			  </ul>
+			</div>
+	  
+			<p style="color:#888; font-size:0.85rem; text-align:center; margin-top:24px;">
+			  Derived from your top-performing pots of this strain.<br>
+			  More high-quality harvests = better accuracy.
+			</p>
+		  `;
 		}
 
-		document.getElementById("strainRecTitle").textContent = `Recommendations for ${strain}`;
+		document.getElementById("strainRecTitle").textContent = `Recommendations: ${strain}`;
 		document.getElementById("strainRecContent").innerHTML = html;
-
 		document.getElementById("strainRecommendationsModal").style.display = "flex";
 	  },
 
-	
+	startActionCountdowns() {
+		if (this.countdownInterval) clearInterval(this.countdownInterval);
 
-	showStrainRecommendations(strain) {
-		if (!strain) return alert("No strain selected");
+		this.countdownInterval = setInterval(() => {
+			document.querySelectorAll('.action-estimate-panel').forEach(panel => {
+				const waterTarget = parseInt(panel.dataset.waterTarget) || 0;
+				const fertTarget = parseInt(panel.dataset.fertTarget) || 0;
+				const potId = panel.querySelector('span[id^="water-countdown-"]')?.id.split('-')[2] || '';
 
-		const analysis = this.analyzeStrainRecommendations(strain);
+				// Helper to format time left as "Xh Ym"
+				const formatTimeLeft = (targetTime) => {
+					if (!targetTime || targetTime <= Date.now()) {
+						return "Now";
+					}
+					const secondsLeft = Math.floor((targetTime - Date.now()) / 1000);
+					const hours = Math.floor(secondsLeft / 3600);
+					const minutes = Math.floor((secondsLeft % 3600) / 60);
+					return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+				  };
 
-		// Simple modal or alert for now
-		let message = `Recommendations for ${strain}\n\n`;
+				// Water countdown
+				const waterSpan = document.getElementById(`water-countdown-${potId}`);
+				if (waterSpan) {
+					waterSpan.textContent = formatTimeLeft(waterTarget);
+				}
 
-		if (typeof analysis === 'string') {
-			message += analysis; // e.g. "No harvested pots found..."
-		} else {
-			message += `Based on ${analysis.topPots} high-quality harvests:\n\n`;
-			message += `Average quality: ${analysis.avgQuality}%\n`;
-			message += `Average yield per day: ${analysis.avgYieldPerDay}g\n\n`;
-			message += `Prep suggestions:\n`;
-			message += `- Water: ${analysis.suggestedPrepWater || '70–95%'} (start high to buffer drops)\n`;
-			message += `- Ground: ${analysis.suggestedPrepGround || '60–90%'} (add fertiliser early)\n\n`;
-			message += `Water advice: ${analysis.waterAdvice || 'Re-water at 65–70% to avoid stress'}\n`;
-			message += `Ground/fertiliser advice: ${analysis.groundAdvice || 'Add when <65%, aim 60–100%'}`;
-		}
-
-		alert(message); // Replace with nice modal later
+				// Fertiliser countdown
+				const fertSpan = document.getElementById(`fert-countdown-${potId}`);
+				if (fertSpan) {
+					fertSpan.textContent = formatTimeLeft(fertTarget);
+				}
+			});
+		}, 1000); // update every second
 	  },
+
 
 };
 
@@ -1364,4 +1732,5 @@ function createPercentCircle(percent, color) {
 window.addEventListener("load", () => {
 	// Ensure data exists
 	App.state.growGroups = App.state.growGroups || [];
+	this.startCountdownUpdater();
 });
