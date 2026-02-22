@@ -1113,19 +1113,27 @@
 
         <!-- Strain Recommendations Modal -->
         <div id="strainRecommendationsModal"
-            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1020; align-items:center; justify-content:center;">
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:2000; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
             <div
-                style="background:#111; padding:30px; width:600px; max-width:90%; border-radius:12px; max-height:80vh; overflow-y:auto; color:#eee;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <h3 id="strainRecTitle">Strain Recommendations</h3>
+                style="background:#0f1419; width:90%; max-width:500px; border-radius:12px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.6); color:#e0e0e0; font-family:system-ui, sans-serif;">
+        
+                <!-- Header -->
+                <div
+                    style="padding:16px 20px; background:#1a1f26; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
+                    <h3 id="strainRecTitle" style="margin:0; font-size:1.3rem; color:#fff;">Strain Recommendations</h3>
                     <button onclick="GrowManager.closeStrainRecModal()"
-                        style="background:#e74c3c; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer;">
-                        Close
-                    </button>
+                        style="background:none; border:none; color:#aaa; font-size:1.4rem; cursor:pointer; padding:0 8px;">×</button>
                 </div>
         
-                <div id="strainRecContent" style="line-height:1.6;">
-                    <!-- Content loaded dynamically -->
+                <!-- Content -->
+                <div id="strainRecContent" style="padding:20px; line-height:1.6; font-size:0.98rem;"></div>
+        
+                <!-- Footer -->
+                <div style="padding:12px 20px; background:#1a1f26; border-top:1px solid #333; text-align:right;">
+                    <button onclick="GrowManager.closeStrainRecModal()"
+                        style="background:#e74c3c; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:500;">
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
