@@ -132,11 +132,17 @@ const GrowManager = {
 	savePot() {
 		const label = document.getElementById("potLabel").value.trim();
 		if (!label) showToast("fail", "Pot label required", duration = 3000);
-
+		
+		// Create initial history entry (pot creation snapshot)
+		const now = new Date(); // capture timestamp FIRST
+		const nowISO = now.toISOString();
+		
+		
 		const water = parseInt(document.getElementById("potWater").value) || 0;
 		const ground = parseInt(document.getElementById("potGround").value) || 0;
 		const light = parseInt(document.getElementById("potLight").value) || 0;
-
+		const initialOverall = Math.round((water + ground + light) / 3);
+		
 		const pot = {
 			id: this.currentPotId || "pot-" + Date.now(),
 			label,
@@ -153,10 +159,7 @@ const GrowManager = {
 			actions: []
 		};
 
-		// Create initial history entry (pot creation snapshot)
-		const now = new Date(); // capture timestamp FIRST
-		const nowISO = now.toISOString();
-		const initialOverall = Math.round((water + ground + light) / 3);
+		
 
 		pot.history.push({
 			recordedAt: nowISO,
