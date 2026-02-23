@@ -440,7 +440,7 @@ const Calculator = {
                 };
 
                 boxBreakdown[reason].linkedQty += needed;
-                const boxesPerUnit = RECYCLING_BOX_RATES[item] || 2;
+                const boxesPerUnit = RECYCLING_BOX_RATES[item] || 0;
                 boxBreakdown[reason].boxes += Math.ceil(needed) * boxesPerUnit;
 
                 return;
@@ -483,7 +483,7 @@ const Calculator = {
 
                 boxBreakdown[reason].linkedQty += needed;
 
-                const boxesPerUnit = RECYCLING_BOX_RATES[item] || 2;
+                const boxesPerUnit = RECYCLING_BOX_RATES[item] || 0;
                 boxBreakdown[reason].boxes += Math.ceil(needed) * boxesPerUnit;
             }
 
