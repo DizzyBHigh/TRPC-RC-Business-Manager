@@ -1,9 +1,10 @@
-// RavenCity MAterial Manager
+// RavenCity Wolverines
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAjKU_arjegefucydHp2qWFzeYMGJN891Y",
-  authDomain: "ravencityrp-materialmana-c7464.firebaseapp.com",
-  projectId: "ravencityrp-materialmana-c7464",
-  storageBucket: "ravencityrp-materialmana-c7464.firebasestorage.app",
-  messagingSenderId: "689509717654",
-  appId: "1:689509717654:web:ba401bfdc9edca3d0954b7"
+  apiKey: "AIzaSyCOQbpIM9gzQFvhHUYnEfSYe_R6R9DZOvQ",
+  authDomain: "wolverines-trpc.firebaseapp.com",
+  projectId: "wolverines-trpc",
+  storageBucket: "wolverines-trpc.firebasestorage.app",
+  messagingSenderId: "781376351777",
+  appId: "1:781376351777:web:f512f6afee99edfb27fd60"
 };
