@@ -1032,7 +1032,7 @@ const GrowManager = {
 		switch (type) {
 			case "Basic": addedPercent = amount * 20; break;
 			case "Yield": addedPercent = amount * 15; break;
-			case "Growth": addedPercent = amount * 10; break;
+			case "Growth": addedPercent = amount * 15; break;
 			case "Black Market": addedPercent = amount * 25; break;
 			default: addedPercent = amount * 20;
 		}
