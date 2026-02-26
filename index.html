@@ -1141,6 +1141,221 @@
         
         
     </div>
+
+    <!-- Distilation Tab -->
+    <div class="tab-content" id="distilation" style="display: none;">
+        
+        <div id="mash-recipe-list" style="margin-top:30px;">
+            <!-- Saved recipes will appear here -->  
+        </div>
+        <button onclick="showStartRunModal()"
+            style="background:#0f8; color:#000; padding:10px 20px; border:none; border-radius:8px; font-weight:bold;">
+            Start New Distilling Run
+        </button>
+        <div id="distilling-runs-list" style="margin-top:40px;">
+            <!-- Active & recent runs appear here -->  
+        </div>
+
+
+        <!-- Compact Mash Recipe Creation Form – Narrower Inputs -->
+        <!-- Compact Mash Recipe Creation Form – Column Layout -->
+        <div id="mash-recipe-form"
+            style="background:#001122; padding:16px; border-radius:12px; border:2px solid #0af; margin:20px 0; max-width:700px;">
+            <h3 style="color:#0ff; margin:0 0 12px 0; font-size:18px;">New Mash Recipe</h3>
+        
+            <form id="mashForm">
+                <!-- Two-column grid -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <!-- Left column: Name + Ingredient/Amount -->
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Recipe Name -->
+                        <div>
+                            <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Recipe Name</label>
+                            <input type="text" id="recipeName" placeholder="e.g. Fast Rum"
+                                style="width: 95%; padding: 8px; background: rgb(0, 0, 0); color: rgb(255, 255, 255); border: 1px solid rgb(68, 68, 68); border-radius: 6px; font-size: 14px;">
+                        </div>
+        
+                        <!-- Main Ingredient + Amount (same row) -->
+                        <div style="display:grid; grid-template-columns:2fr 1fr; gap:8px;">
+                            <div>
+                                <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Main
+                                    Ingredient</label>
+                                <select id="mainIngredient"
+                                    style="width: 100%; padding: 8px; background: rgb(0, 0, 0); color: rgb(255, 255, 255); border: 1px solid rgb(68, 68, 68); border-radius: 6px; font-size: 14px;">
+                                    <option value="">Select...</option>
+                                    <option value="Brown Sugar">Brown Sugar → Rum</option>
+                                    <option value="Cane Sugar">Cane Sugar → Rum</option>
+                                    <option value="Molasses">Molasses → Rum</option>
+                                    <option value="Honey">Honey → Mead</option>
+                                    <option value="Rice">Rice → Saki</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Amount</label>
+                                <input type="number" id="ingredientAmount" min="0.1" step="0.1" placeholder="0"
+                                    style="width: 85%; padding: 8px; background: rgb(0, 0, 0); color: rgb(255, 255, 255); border: 1px solid rgb(68, 68, 68); border-radius: 6px; font-size: 14px;">
+                            </div>
+                        </div>
+                    </div>
+        
+                    <!-- Right column: Yeast + Water Type/Bottles -->
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Yeast Type -->
+                        <div>
+                            <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Yeast Type</label>
+                            <select id="yeastType"
+                                style="width: 100%; padding: 8px; background: rgb(0, 0, 0); color: rgb(255, 255, 255); border: 1px solid rgb(68, 68, 68); border-radius: 6px; font-size: 14px;">
+                                <option value="Bread">Bread</option>
+                                <option value="Distillers">Distillers</option>
+                                <option value="Champagne">Champagne</option>
+                                <option value="Turbo">Turbo</option>
+                            </select>
+                        </div>
+        
+                        <!-- Water Type + Bottles (same row) -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            <div>
+                                <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Water Type</label>
+                                <select id="waterType"
+                                    style="width: 100%; padding: 8px; background: rgb(0, 0, 0); color: rgb(255, 255, 255); border: 1px solid rgb(68, 68, 68); border-radius: 6px; font-size: 14px;">
+                                    <option value="Normal">Normal</option>
+                                    <option value="Distilled">Distilled</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Bottles</label>
+                                <input type="number" id="waterAmount" min="1" placeholder="1"
+                                    style="width: 90%; padding: 8px; background: rgb(0, 0, 0); color: rgb(255, 255, 255); border: 1px solid rgb(68, 68, 68); border-radius: 6px; font-size: 14px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        
+                <!-- Submit Button (full width for emphasis) -->
+                <button type="button" onclick="Distilling.createMashRecipe()"
+                    style="background: rgb(0, 255, 136); color: rgb(0, 0, 0); padding: 10px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; width: 100%; margin-top: 16px;">
+                    Save Recipe
+                </button>
+            </form>
+        
+            <div id="mashFeedback" style="margin-top:12px; color:#0f8; font-size:14px; min-height:20px;"></div>
+        </div>
+
+        <!-- Start Run Confirmation Modal -->
+        <div id="startRunModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+            <div
+                style="background:#001122; padding:24px; border-radius:12px; border:2px solid #0af; max-width:500px; width:90%; color:#fff;">
+                <h3 style="color:#0ff; margin:0 0 16px;">Start Distilling Run?</h3>
+                <p id="modalRecipeName" style="font-size:16px; margin-bottom:8px;"></p>
+                <p id="modalRecipeDetails" style="color:#aaa; margin-bottom:24px;"></p>
+        
+                <div style="display:flex; gap:12px; justify-content:flex-end;">
+                    <button onclick="Distilling.cancelStartRun()"
+                        style="background:#444; color:#fff; padding:10px 20px; border:none; border-radius:8px; cursor:pointer;">
+                        Cancel
+                    </button>
+                    <button onclick="Distilling.confirmStartRun()"
+                        style="background:#0f8; color:#000; padding:10px 20px; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">
+                        Start Run
+                    </button>
+                </div>
+            </div>  
+        </div>
+
+        <!-- Fermentation Log Entry Modal – Decimals for Temps -->
+        <div id="fermentLogModal"
+            style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+            <div
+                style="background:#001122; padding:20px; border-radius:12px; border:2px solid #0af; max-width:480px; width:90%; color:#fff;">
+                <h3 style="color:#0ff; margin:0 0 16px;">Add Fermentation Log</h3>
+                <p id="logRunName" style="margin:0 0 16px; font-size:15px;"></p>
+        
+                <form id="fermentLogForm">
+                    <!-- Timestamp (auto) -->
+                    <div style="margin-bottom:12px;">
+                        <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Timestamp</label>
+                        <input type="text" id="logTimestamp" readonly
+                            style="width:100%; padding:8px; background:#111; color:#aaa; border:1px solid #444; border-radius:6px; font-size:14px;">
+                    </div>
+        
+                    <!-- Day/Night + Weather -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div>
+                            <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Day/Night</label>
+                            <select id="logDayNight"
+                                style="width:100%; padding:8px; background:#000; color:#fff; border:1px solid #444; border-radius:6px;">
+                                <option value="Day">Day</option>
+                                <option value="Night">Night</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Weather</label>
+                            <select id="logWeather"
+                                style="width:100%; padding:8px; background:#000; color:#fff; border:1px solid #444; border-radius:6px;">
+                                <option value="Sunny">Sunny</option>
+                                <option value="Cloudy">Cloudy</option>
+                                <option value="Raining">Raining</option>
+                                <option value="Thunder">Thunder</option>
+                            </select>
+                        </div>
+                    </div>
+        
+                    <!-- Burn Rate -->
+                    <div style="margin-bottom:12px;">
+                        <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Burn Rate (0–100)</label>
+                        <input type="number" id="logBurnRate" min="0" max="100" step="1" value="50"
+                            style="width:100%; padding:8px; background:#000; color:#fff; border:1px solid #444; border-radius:6px;">
+                    </div>
+        
+                    <!-- Temp Range – Decimals allowed -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div>
+                            <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Low Temp (°C) – e.g.
+                                27.1</label>
+                            <input type="number" id="logLowTemp" step="0.1" value="25.5" min="0"
+                                style="width:100%; padding:8px; background:#000; color:#fff; border:1px solid #444; border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">High Temp (°C) – e.g.
+                                30.2</label>
+                            <input type="number" id="logHighTemp" step="0.1" value="27.5" min="0"
+                                style="width:100%; padding:8px; background:#000; color:#fff; border:1px solid #444; border-radius:6px;">
+                        </div>
+                    </div>
+        
+                    <!-- Progress & Time Remaining -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                        <div>
+                            <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Progress (%)</label>
+                            <input type="number" id="logProgress" min="0" max="200" step="0.5" value="0"
+                                style="width:100%; padding:8px; background:#000; color:#fff; border:1px solid #444; border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="color:#0af; font-size:13px; display:block; margin-bottom:4px;">Time Remaining</label>
+                            <input type="text" id="logTimeRemaining" placeholder="e.g. 12 hrs 15 mins"
+                                style="width:100%; padding:8px; background:#000; color:#fff; border:1px solid #444; border-radius:6px;">
+                        </div>
+                    </div>
+        
+                    <!-- Buttons -->
+                    <div style="display:flex; gap:12px; justify-content:flex-end;">
+                        <button type="button" onclick="Distilling.cancelFermentLog()"
+                            style="background:#444; color:#fff; padding:10px 16px; border:none; border-radius:8px; cursor:pointer;">
+                            Cancel
+                        </button>
+                        <button type="button" onclick="Distilling.saveFermentLog()"
+                            style="background:#0f8; color:#000; padding:10px 16px; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">
+                            Save Log
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+
     <!-- Seeds Tab -->
     <div id="seeds" class="tab-content" style="display:none;">
         <!-- Header with Add Button -->
@@ -1992,6 +2207,7 @@
     <script src="js/employees.js"></script>
     <script src="js/rawMaterials.js"></script>
     <script src="js/weed.js"></script>
+    <script src="js/distilling.js"></script>
     <script src="js/recipes.js"></script>
     <script src="js/categories.js"></script>
     <script src="js/shopsales.js"></script>
