@@ -1004,6 +1004,7 @@ const App = {
             }
             //WeedGrow.renderTable();
             GrowManager.renderGroups();
+            Distilling.init();
             Crops.renderSeeds?.();
             Crops.renderHarvests?.();
             // Trigger search inputs to refresh dropdowns
@@ -1749,6 +1750,12 @@ const DropdownMenu = {
                 
                 `.trim()
                 },
+                {
+                    id: "distilation", name: "Distillery", desc: "Make Booze", help: `
+                <p><strong>Distillation Section</strong></p>
+                
+                `.trim()
+                },
             
 
             ]
@@ -2070,6 +2077,10 @@ async function activateTab(tabId) {
     if (tabId === "growGroups") {
         //WeedGrow.renderTable();
         GrowManager.renderGroups();
+    }
+
+    if (tabId === "distilling") {
+        Distilling.renderRecipeList();
     }
 
     if (tabId === "seeds") {
