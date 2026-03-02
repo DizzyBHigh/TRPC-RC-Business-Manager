@@ -1,17 +1,20 @@
 // firebaseConfig.js
-// This file is safe to commit — keys come from environment variables
+// This file is safe to commit — real keys are injected by Amplify at deploy time
 
 window.firebaseConfig = window.firebaseConfig || {
-  apiKey: window.VITE_FIREBASE_API_KEY || "YOUR-LOCAL-TEST-KEY",
-  authDomain: window.VITE_FIREBASE_AUTH_DOMAIN || "localhost-test.firebaseapp.com",
-  projectId: window.VITE_FIREBASE_PROJECT_ID || "local-test",
-  storageBucket: window.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: window.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: window.VITE_FIREBASE_APP_ID || ""
+  apiKey: window.FIREBASE_API_KEY || null,
+  authDomain: window.FIREBASE_AUTH_DOMAIN || null,
+  projectId: window.FIREBASE_PROJECT_ID || null,
+  storageBucket: window.FIREBASE_STORAGE_BUCKET || null,
+  messagingSenderId: window.FIREBASE_MESSAGING_SENDER_ID || null,
+  appId: window.FIREBASE_APP_ID || null
 };
 
-// Debug log (remove in production if you want)
-console.log("Firebase config loaded:", {
+console.log("Firebase config loaded from Amplify env:", {
   hasKey: !!window.firebaseConfig.apiKey,
-  project: window.firebaseConfig.projectId
+  project: window.firebaseConfig.projectId || "MISSING"
 });
+
+if (!window.firebaseConfig.apiKey) {
+  console.error("Firebase keys not injected — check Amplify env vars");
+}
