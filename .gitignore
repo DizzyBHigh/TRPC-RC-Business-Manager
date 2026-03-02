@@ -1,3 +1,6 @@
 reources.code-workspace
 /js/firebaseConfig-RGS.js
 /.env
+/js/firebaseConfig-demo.js
+/js/firebaseConfig-Local.js
+/js/firebaseConfig-base.js

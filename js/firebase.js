@@ -1,6 +1,10 @@
+const config = window.firebaseConfig;
 
+if (!config.apiKey) {
+    console.error("Firebase config missing — check Amplify env vars or local .env");
+}
 
-firebase.initializeApp(firebaseConfig);
+firebase.initializeApp(config);
 
 firebase.auth().onAuthStateChanged(user => {
     if (user) {
