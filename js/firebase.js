@@ -1,13 +1,17 @@
-const firebaseConfig = {
-    apiKey: "AIzaSyCOQbpIM9gzQFvhHUYnEfSYe_R6R9DZOvQ",
-    authDomain: "wolverines-trpc.firebaseapp.com",
-    projectId: "wolverines-trpc",
-    storageBucket: "wolverines-trpc.firebasestorage.app",
-    messagingSenderId: "781376351777",
-    appId: "1:781376351777:web:f512f6afee99edfb27fd60"
-};
+const config = window.firebaseConfig;
 
-firebase.initializeApp(firebaseConfig);
+if (!config || !config.apiKey) {
+    console.error("Firebase config missing - cannot initialize");
+    // Do NOT fallback - fail loudly in production
+    throw new Error("Firebase config not available");
+}
+
+firebase.initializeApp(config);
+
+console.log("Firebase initialized with config:", {
+    project: config.projectId,
+    hasKey: !!config.apiKey
+});
 
 firebase.auth().onAuthStateChanged(user => {
     if (user) {
