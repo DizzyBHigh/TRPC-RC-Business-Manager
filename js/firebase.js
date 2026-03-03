@@ -1,16 +1,18 @@
-const config = window.firebaseConfig;
+const firebaseConfig = {
+    apiKey: "AIzaSyCOQbpIM9gzQFvhHUYnEfSYe_R6R9DZOvQ",
+    authDomain: "wolverines-trpc.firebaseapp.com",
+    projectId: "wolverines-trpc",
+    storageBucket: "wolverines-trpc.firebasestorage.app",
+    messagingSenderId: "781376351777",
+    appId: "1:781376351777:web:f512f6afee99edfb27fd60"
+};
 
-if (!config.apiKey) {
-    console.error("Firebase config missing — check Amplify env vars or local .env");
-}
-
-firebase.initializeApp(config);
+firebase.initializeApp(firebaseConfig);
 
 firebase.auth().onAuthStateChanged(user => {
     if (user) {
         console.log("Logged in as", user.uid);
-        App.userDoc = SHARED_DOC_REF;  // reconnect just in case
-        //goOnline();  // ADD THIS LINE
+        App.userDoc = SHARED_DOC_REF;
     } else {
         console.log("Signing in anonymously...");
         firebase.auth().signInAnonymously()
@@ -19,7 +21,7 @@ firebase.auth().onAuthStateChanged(user => {
     }
 });
 
-// Also set App.userDoc immediately when page loads
+// Re-attach on change
 firebase.auth().onAuthStateChanged(user => {
     if (user) App.userDoc = SHARED_DOC_REF;
 });
